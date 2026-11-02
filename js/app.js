@@ -135,6 +135,8 @@ function trailSVG(from, to) {
 }
 function topicOrder() { return D.topics.chapters.flatMap(c => c.topics); }
 function prevTopic(tid) { const o = topicOrder(); const i = o.indexOf(tid); return i > 0 ? o[i - 1] : null; }
+// сундук повторяет ближайший пройденный раньше параграф (если начал курс с середины — не спросит то, чего не учил)
+function chestTopic(tid) { let t = prevTopic(tid); while (t && !stepDone(t, 0)) t = prevTopic(t); return t; }
 function nextTopic(tid) { const o = topicOrder(); const i = o.indexOf(tid); return i < o.length - 1 ? o[i + 1] : null; }
 const BOOK_SHORT = { 'Всеобщая история': 'Средние века', 'История России': 'История России' };
 const chName = (ch) => `глава ${ch.num || ch.id}`;
@@ -200,13 +202,13 @@ function renderHome() {
     const row = document.createElement('div');
     row.className = 'node-row ' + LANES[idx];
     const b = document.createElement('button');
-    const open = nodeOpen(tid, idx) && !(kind === 'chest' && !prevTopic(tid));
+    const open = nodeOpen(tid, idx) && !(kind === 'chest' && !chestTopic(tid));
     const best = stepBest(tid, idx);
     b.className = `node ${kind}` + (open ? '' : ' locked') + (idx === currentIdx ? ' current' : '') + (best >= 70 ? ' done' : '');
     b.disabled = !open;
     let icon = 'star', label = '';
     if (kind === 'step') { stepNo++; icon = best >= 70 ? 'check' : 'star'; }
-    if (kind === 'chest') { icon = 'chest'; label = prevTopic(tid) ? `${D.topicById[prevTopic(tid)].paragraph}` : '<span class="small muted">со следующего параграфа</span>'; }
+    if (kind === 'chest') { icon = 'chest'; label = chestTopic(tid) ? `${D.topicById[chestTopic(tid)].paragraph}` : '<span class="small muted">когда будет что вспомнить</span>'; }
     if (kind === 'exam') { icon = best >= 70 ? 'trophy' : 'exam'; }
     if (!open) icon = 'lock';
     const col = !open ? '#9aa0a6' : best >= 70 ? '#3FA66A' : kind === 'chest' ? '#c48a00' : kind === 'exam' ? '#7c5cff' : '#1F3FBF';
@@ -272,10 +274,10 @@ function renderTopicPicker() {
   }
 }
 const PICKER_FOOT = [
-  'Две книги, шесть боссов. Кто дойдет до Кремля — тот знает шестой класс лучше учителя. Ну, почти.',
+  'Две книги, десять боссов. Кто дойдет до Кремля — тот знает шестой класс лучше учителя. Ну, почти.',
   'Где-то в середине списка — 988 год. Владимир выбирал веру дольше, чем ты пройдешь параграф.',
   'Каждый параграф — это 6 шагов по три минуты. Вся книга — меньше, чем один сезон сериала.',
-  'Где-то внизу этого списка — 1492 год. Колумб доплыл, доплывешь и ты.',
+  'Где-то в середине этого списка — 1492 год. Колумб доплыл, доплывешь и ты.',
 ];
 function togglePicker(open) {
   $('picker').classList.toggle('hidden', !open);
@@ -297,6 +299,14 @@ const BOSS_HOUSE = {
   // юрта, криво: дрожащий купол, войлочные полосы, дымок
   V:  '<svg class="house" viewBox="0 0 120 100" fill="none" stroke="#1e2235" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 80q6-30 24-44q12-10 26-11q16 1 26 12q14 14 22 42l-4 3q-46 4-92 1z"/><path d="M22 60q38-10 78 2M16 72q44-8 90 1"/><path d="M48 82v-20q12-9 24 1v20"/><path d="M60 24q-2-6 1-10q4 3 1 10M62 14q-6-8 2-12q6 6 2 11"/><path d="M68 10q6-6 2-12M72 4q8-4 4-10"/><path d="M30 46q3-2 6 1M84 44q3-2 6 2"/></svg>',
   // замок, криво: зубцы разной высоты, флаг, окошки
+  // романская церковь: толстые стены, полукруглые арки, башенка
+  I:  '<svg class="house" viewBox="0 0 120 100" fill="none" stroke="#1e2235" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 88V52l46-22 46 22v36z"/><path d="M48 40V12l12-6 12 6v27"/><path d="M60 6V-2M56 2h8"/><path d="M50 88V70q10-12 20 0v18"/><path d="M26 64q4-6 8 0v8h-8zM86 64q4-6 8 0v8h-8z"/><path d="M56 22q4-5 8 0v6h-8z"/></svg>',
+  // мечеть: купол, минарет с полумесяцем
+  II: '<svg class="house" viewBox="0 0 120 100" fill="none" stroke="#1e2235" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 88V58h64v30z"/><path d="M20 58q2-28 30-30q28 2 30 30"/><path d="M50 28v-8"/><path d="M92 88V30h12v58"/><path d="M90 30l8-14 8 14"/><path d="M98 16q-6-6 0-12q-2 6 4 8"/><path d="M42 88V72q8-10 16 0v16"/></svg>',
+  // мельница у деревни
+  III: '<svg class="house" viewBox="0 0 120 100" fill="none" stroke="#1e2235" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M44 88l4-50h24l4 50z"/><path d="M46 38l14-12 14 12"/><path d="M60 30L28 8M60 30l32-22M60 30L30 54M60 30l30 24"/><path d="M28 8l-6 8 10 4M92 8l6 8-10 4"/><path d="M54 88V74q6-6 12 0v14"/><path d="M6 88h108"/></svg>',
+  // готический собор: две башни со шпилями, роза
+  IV: '<svg class="house" viewBox="0 0 120 100" fill="none" stroke="#1e2235" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 88V30l10-24 10 24v58M78 88V30l10-24 10 24v58"/><path d="M42 88V46l18-16 18 16v42"/><circle cx="60" cy="52" r="7"/><path d="M52 88V72q8-14 16 0v16"/><path d="M28 44q4-8 8 0v10h-8zM84 44q4-8 8 0v10h-8z"/></svg>',
   // терем: высокая крыша-бочка, крыльцо, резные наличники
   R1: '<svg class="house" viewBox="0 0 120 100" fill="none" stroke="#1e2235" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M28 88V48l32-2 32 3-1 39z"/><path d="M22 50q18-34 38-42q22 8 40 43"/><path d="M44 30q16-14 32 0"/><path d="M50 88V66q10-8 20 0v22"/><path d="M34 58h10v10H34zM76 57h10v11H76z"/><path d="M32 54q7-5 14 0M74 53q7-5 14 1"/><path d="M60 8V0"/></svg>',
   // белокаменный храм: луковка, крест, арки-закомары
@@ -649,7 +659,7 @@ function buildStep(tid, idx) {
   return out;
 }
 function buildChest(tid) {
-  const pt = prevTopic(tid);
+  const pt = chestTopic(tid);
   const p = topicPool(pt);
   return buildTasksFrom(p, ['pairs', 'tf', 'choice', 'order', 'pairsx', 'choice', 'cloze', 'type']);
 }
@@ -665,7 +675,7 @@ function buildBoss(ch, level) {
   if (level === 1) {
     const tfs = pick(tf, 5);
     const kinds = [() => tPairs(pick(facts, 6)), () => tPairsTerms(terms), () => tPairs(pick(facts, 6)), () => tPairsPersons(persons), () => tPairs(pick(facts, 6))];
-    for (let i = 0; i < 10; i++) tasks.push(i % 2 === 0 ? kinds[i / 2]() : tTrueFalse(tfs[(i - 1) / 2]));
+    for (let i = 0; i < 10; i++) tasks.push(i % 2 === 0 ? kinds[i / 2]() : tTrueFalse(tfs[((i - 1) / 2) % tfs.length]));
   } else if (level === 2) {
     const cl = pick(cloze, 3), cs = pick(causes, 3);
     const plan = ['order', 'cloze', 'choice', 'cause', 'order', 'cloze', 'choice', 'cause', 'cloze', 'cause'];
@@ -709,8 +719,8 @@ function startRun(kind, tasks, meta) {
 function startStep(tid, idx) { runStep(tid, idx); }
 function runStep(tid, idx) { const k = stepNoOf(tid, idx); startRun('step', buildStep(tid, idx), { tid, idx, intro: `${D.topicById[tid].paragraph}, ${['первая','вторая','третья','четвертая','пятая','шестая','седьмая','восьмая'][k] || (k + 1) + '-я'} тренировка. ${LESSON_LEN} заданий.` }); }
 function startChest(tid) {
-  const pt = prevTopic(tid);
-  if (!pt) { alert('Это первый параграф курса, сундук откроется со следующего.'); return; }
+  const pt = chestTopic(tid);
+  if (!pt) return;
   startRun('chest', buildChest(tid), { tid, idx: planFor(tid).indexOf('chest'), intro: `Сундук: вспоминаем ${D.topicById[pt].paragraph}. За 70% — сердце на босса.` });
 }
 function startTopicExam(tid) { startRun('exam', buildTopicExam(tid), { tid, idx: planFor(tid).indexOf('exam'), intro: `Контрольная по ${D.topicById[tid].paragraph}. Как учитель спросит.` }); }

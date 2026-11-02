@@ -82,7 +82,15 @@ const COSTUMES = {
   'r':     '<g fill="none" stroke="#5b6270" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M40 36q2-24 40-34q38 10 40 34z"/><path d="M80 2v-10"/><path d="M40 36q40 8 80 0"/></g>', // шлем-шишак
   'rk':    '<g fill="none" stroke="#c48a00" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M42 36q-2-22 38-28q40 6 38 28z"/><path d="M80 8v-12M74 -2h12"/><path d="M40 38q40 8 80 0" stroke="#6b4a1e" stroke-width="8"/></g>', // шапка Мономаха
   'rm':    '<g fill="none" stroke="#1e2235" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M38 40q0-34 42-36q42 2 42 36"/><path d="M38 40q42 6 84 0"/></g>', // монашеский клобук
-
+  '1':     '<g fill="none" stroke="#2f9e5b" stroke-width="5" stroke-linecap="round"><path d="M42 34q-6-20 14-26M118 34q6-20-14-26"/><path d="M46 24l-8-4M50 16l-6-6M114 24l8-4M110 16l6-6"/></g>', // лавровый венок
+  '2':     '<g fill="none" stroke="#c48a00" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M44 36V14l12 10 12-14 12 14 12-14 12 14 12-10v22z"/><path d="M80 12v-12"/></g>', // корона василевса
+  'k':     '<g fill="none" stroke="#c48a00" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M46 36l-4-22 18 12 20-20 20 20 18-12-4 22z"/></g>', // корона
+  'v':     '<g fill="none" stroke="#6a7179" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M40 36q0-30 40-32q40 2 40 32z"/><path d="M80 36v18"/></g>', // шлем с наносником
+  't':     '<g fill="none" stroke="#c48a00" stroke-width="5" stroke-linecap="round"><path d="M44 34q36-30 70-2"/><path d="M58 22q22-14 44 0M78 10v12"/></g>', // тюрбан
+  'kn':    '<g fill="none" stroke="#6a7179" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M42 40V18q38-26 76 0v22z"/><path d="M50 26h60"/></g>', // ведрообразный шлем
+  'kr':    '<g fill="none" stroke="#6a7179" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M42 40V18q38-26 76 0v22z"/><path d="M80 4v32M68 16h24" stroke="#b5451b"/></g>', // шлем крестоносца
+  'c':     '<g fill="none" stroke="#b5451b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M40 36q10-30 44-30q30 4 22 24"/><path d="M106 30l14 6"/></g>', // колпак ремесленника
+  'u':     '<g fill="none" stroke="#1e2235" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M44 36q36-14 72 0"/><path d="M50 30l30-18 30 18"/><path d="M110 28v14"/></g>', // шапочка студента
   '15':    '<g fill="none" stroke="#6b4a1e" stroke-width="5" stroke-linecap="round"><path d="M40 34q40-26 80-4l-6-18q-36-14-70 4z"/><path d="M78 12v-10"/></g>', // степная шапка
   '16-17': '<g fill="none" stroke="#b5451b" stroke-width="5" stroke-linecap="round"><path d="M30 36q50-22 100 0"/><path d="M80 34q-30-36 0-30q30-6 0 30z"/></g>', // соломенная шляпа
   '18':    '<g fill="none" stroke="#c48a00" stroke-width="5" stroke-linecap="round"><path d="M44 34q36-30 70-2"/><path d="M58 22q22-14 44 0M78 10v12"/></g>', // тюрбан
@@ -99,6 +107,8 @@ function charSVG(id, mood = 'idle', costume = null, size = 96) {
 }
 function costumeOf(tid) {
   if (COSTUMES[tid]) return COSTUMES[tid];
+  const SV = { '3': 'k', '4': 'v', '5': 't', '6': 't', '7': 'kn', '8': 'rm', '9': 'c', '10': 'kr', '11-12a': 'k', '11-12b': 'k', '13': 'k', '14': 'u', '21-22a': '21-22', '21-22b': '21-22' };
+  if (SV[tid]) return COSTUMES[SV[tid]];
   if (!/^r/.test(tid)) return '';
   if (['r12', 'r36-37', 'r40-41'].includes(tid)) return COSTUMES.rk;
   if (['r19-20', 'r42-43'].includes(tid)) return COSTUMES.rm;
