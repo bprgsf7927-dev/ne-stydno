@@ -3,7 +3,7 @@
    Без сборки и без аккаунтов: прогресс в localStorage (схема v2). */
 
 const SUBJECTS = [
-  { id: 'istoria', title: 'Истори-тренажер', course: 'srednie-veka-6', courseTitle: 'Средние века, 6 класс', on: true },
+  { id: 'istoria', title: 'Истори-тренажер', course: 'srednie-veka-6', courseTitle: 'История, 6 класс', on: true },
   { id: 'geografia', title: 'Гео-тренажер', course: null, courseTitle: '6 класс', on: false },
   { id: 'biologia', title: 'Био-тренажер', course: null, courseTitle: '6 класс', on: false },
 ];
@@ -136,6 +136,10 @@ function trailSVG(from, to) {
 function topicOrder() { return D.topics.chapters.flatMap(c => c.topics); }
 function prevTopic(tid) { const o = topicOrder(); const i = o.indexOf(tid); return i > 0 ? o[i - 1] : null; }
 function nextTopic(tid) { const o = topicOrder(); const i = o.indexOf(tid); return i < o.length - 1 ? o[i + 1] : null; }
+const BOOK_SHORT = { 'Всеобщая история': 'Средние века', 'История России': 'История России' };
+const chName = (ch) => `глава ${ch.num || ch.id}`;
+const ChName = (ch) => `Глава ${ch.num || ch.id}`;
+function chById(id) { return D.topics.chapters.find(c => c.id === id); }
 function chapterOf(tid) { return D.topics.chapters.find(c => c.topics.includes(tid)); }
 function isLastInChapter(tid) { const ch = chapterOf(tid); return ch.topics[ch.topics.length - 1] === tid; }
 
@@ -183,7 +187,7 @@ function renderHome() {
   $('daily').classList.toggle('off', !ready);
   $('daily-sub').textContent = ready ? '5 заданий из подзабытого' : 'появится после первой тренировки';
   $('daily-btn').disabled = !ready;
-  $('topic-pill-para').textContent = `Глава ${ch.id} · ${t.paragraph}`;
+  $('topic-pill-para').textContent = `${BOOK_SHORT[ch.book] || ch.book} · ${ChName(ch)} · ${t.paragraph}`;
   $('topic-pill-title').textContent = t.title;
   $('hearts-home').innerHTML = heartsHTML(state.hearts);
 
@@ -226,7 +230,7 @@ function renderHome() {
   const nt = nextTopic(tid);
   const foot = document.createElement('div'); foot.className = 'map-foot';
   const lastInCh = isLastInChapter(tid), chOpen = ch.topics.every(topicDone);
-  if (lastInCh) foot.innerHTML = `<button class="btn ${chOpen ? 'primary' : ''}" id="to-boss" ${chOpen ? '' : 'disabled'}>${chOpen ? `Дальше: босс главы ${ch.id} →` : `Босс главы ${ch.id}: пройди все параграфы`}</button>`;
+  if (lastInCh) foot.innerHTML = `<button class="btn ${chOpen ? 'primary' : ''}" id="to-boss" ${chOpen ? '' : 'disabled'}>${chOpen ? `Дальше: босс, ${chName(ch)} →` : `Босс, ${chName(ch)}: пройди все параграфы`}</button>`;
   else foot.innerHTML = nt ? `<button class="btn ${topicDone(tid) ? 'primary' : ''}" id="next-topic">Дальше: ${esc(D.topicById[nt].paragraph)} ${esc(D.topicById[nt].title)} →</button>` : '';
   box.appendChild(foot);
   if ($('next-topic')) $('next-topic').onclick = () => { state.current = nt; save(); renderHome(); window.scrollTo(0, 0); };
@@ -236,9 +240,14 @@ function renderHome() {
 // список параграфов (плашка)
 function renderTopicPicker() {
   const box = $('picker-list'); box.innerHTML = '';
+  let book = null;
   for (const ch of D.topics.chapters) {
+    if (ch.book !== book) {
+      book = ch.book;
+      const bh = document.createElement('div'); bh.className = 'picker-book'; bh.textContent = book; box.appendChild(bh);
+    }
     const frame = document.createElement('div'); frame.className = 'picker-frame'; box.appendChild(frame);
-    const h = document.createElement('div'); h.className = 'picker-ch'; h.innerHTML = `<span>Глава ${ch.id}</span> ${esc(ch.title)}`; frame.appendChild(h);
+    const h = document.createElement('div'); h.className = 'picker-ch'; h.innerHTML = `<span>${ChName(ch)}</span> ${esc(ch.title)}`; frame.appendChild(h);
     for (const tid of ch.topics) {
       const t = D.topicById[tid];
       const [done, total] = topicProgress(tid);
@@ -256,14 +265,15 @@ function renderTopicPicker() {
     const lv = BOSS_LEVELS.filter(l => (bs['l' + l.id] || 0) >= 70).length;
     const bb = document.createElement('button'); bb.className = 'picker-item boss' + (open ? '' : ' locked') + (bs.won ? ' done' : '');
     bb.innerHTML = `<div class="picker-char">${BOSS_HOUSE[ch.id] || BOSS_HOUSE.VI}</div>
-      <div class="picker-body"><div class="picker-para">Босс</div><div class="picker-title">Босс главы ${ch.id}</div>
+      <div class="picker-body"><div class="picker-para">Босс</div><div class="picker-title">Босс: ${chName(ch)}</div>
       <div class="ticks">${[0,1,2].map(i => `<span class="tick ${i < lv ? 'on' : ''}"></span>`).join('')}<span class="small muted">${open ? (bs.won ? 'повержен' : 'три уровня') : 'пройди все параграфы'}</span></div></div>`;
     bb.onclick = () => { if (!open) return; togglePicker(false); renderBoss(ch.id); };
     frame.appendChild(bb);
   }
 }
 const PICKER_FOOT = [
-  'Два раздела, два босса. Кто дойдет до замка — тот знает Средние века лучше учителя. Ну, почти.',
+  'Две книги, шесть боссов. Кто дойдет до Кремля — тот знает шестой класс лучше учителя. Ну, почти.',
+  'Где-то в середине списка — 988 год. Владимир выбирал веру дольше, чем ты пройдешь параграф.',
   'Каждый параграф — это 6 шагов по три минуты. Вся книга — меньше, чем один сезон сериала.',
   'Где-то внизу этого списка — 1492 год. Колумб доплыл, доплывешь и ты.',
 ];
@@ -287,6 +297,14 @@ const BOSS_HOUSE = {
   // юрта, криво: дрожащий купол, войлочные полосы, дымок
   V:  '<svg class="house" viewBox="0 0 120 100" fill="none" stroke="#1e2235" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 80q6-30 24-44q12-10 26-11q16 1 26 12q14 14 22 42l-4 3q-46 4-92 1z"/><path d="M22 60q38-10 78 2M16 72q44-8 90 1"/><path d="M48 82v-20q12-9 24 1v20"/><path d="M60 24q-2-6 1-10q4 3 1 10M62 14q-6-8 2-12q6 6 2 11"/><path d="M68 10q6-6 2-12M72 4q8-4 4-10"/><path d="M30 46q3-2 6 1M84 44q3-2 6 2"/></svg>',
   // замок, криво: зубцы разной высоты, флаг, окошки
+  // терем: высокая крыша-бочка, крыльцо, резные наличники
+  R1: '<svg class="house" viewBox="0 0 120 100" fill="none" stroke="#1e2235" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M28 88V48l32-2 32 3-1 39z"/><path d="M22 50q18-34 38-42q22 8 40 43"/><path d="M44 30q16-14 32 0"/><path d="M50 88V66q10-8 20 0v22"/><path d="M34 58h10v10H34zM76 57h10v11H76z"/><path d="M32 54q7-5 14 0M74 53q7-5 14 1"/><path d="M60 8V0"/></svg>',
+  // белокаменный храм: луковка, крест, арки-закомары
+  R2: '<svg class="house" viewBox="0 0 120 100" fill="none" stroke="#1e2235" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M26 88V50l68 1-1 37z"/><path d="M26 52q11-14 23 0q11-14 22 0q11-14 23 0"/><path d="M44 42V30l32 1v11"/><path d="M48 30q-2-14 12-20q14 6 12 21"/><path d="M60 10V0M55 4h10"/><path d="M52 88V70q8-8 16 0v18"/><path d="M36 62v8M84 61v9"/></svg>',
+  // ордынский шатер с бунчуком
+  R3: '<svg class="house" viewBox="0 0 120 100" fill="none" stroke="#1e2235" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 86q20-30 46-62q26 32 46 62q-46 4-92 0z"/><path d="M60 24q-12 30-10 62M60 24q12 30 10 62"/><path d="M50 86q10-16 20 0"/><path d="M60 24V4"/><path d="M60 6q8 2 10 10q-8-1-10-6"/><path d="M28 72q6-3 10 1M84 71q6-3 10 2"/></svg>',
+  // кремлевская башня: шатер, ласточкины хвосты
+  R4: '<svg class="house" viewBox="0 0 120 100" fill="none" stroke="#1e2235" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 88V66l4-5 3 5 4-5 3 5 4-5 3 5h8M80 66h8l3-5 4 5 3-5 4 5 3-5 4 5v22z"/><path d="M8 88h104"/><path d="M40 88V44l40 1-1 43z"/><path d="M38 46q11-1 22-28q11 27 22 28"/><path d="M60 18V4M56 8l4-5 4 5"/><path d="M52 88V72q8-8 16 0v16"/><path d="M50 56h20"/></svg>',
   VI: '<svg class="house" viewBox="0 0 120 100" fill="none" stroke="#1e2235" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 88V38l10 2-1-11 12-1v10l12 1-1-14 11-2 1 15 12 1-1-10 12-1 1 12 11-2-1 50z"/><path d="M48 88V62q12-12 25 1v25"/><path d="M28 54l9 1-1 9-8-1zM84 52l9 1-1 10-9-1z"/><path d="M61 25l-1-20 16 5-15 5"/><path d="M22 76q8-2 14 1M86 74q8-3 14 1"/></svg>',
 };
 const BOSS_LEVELS = [
@@ -298,7 +316,7 @@ function bossState(chId) { return state.bosses[chId] || {}; }
 function renderBoss(chId) {
   const ch = D.topics.chapters.find(c => c.id === chId), bs = bossState(chId);
   $('boss-house').innerHTML = BOSS_HOUSE[chId] || BOSS_HOUSE.VI;
-  $('boss-title').textContent = `Босс главы ${ch.id}`; $('boss-title').dataset.ch = ch.id;
+  $('boss-title').textContent = `Босс: ${chName(ch)}`; $('boss-title').dataset.ch = ch.id;
   const nt = nextTopic(ch.topics[ch.topics.length - 1]); $('boss-next').classList.toggle('hidden', !bs.won || !nt); if (nt) $('boss-next').textContent = `Дальше: ${D.topicById[nt].paragraph} ${D.topicById[nt].title} →`;
   $('boss-sub').textContent = ch.title;
   $('boss-hearts').innerHTML = heartsHTML(state.hearts);
@@ -698,7 +716,7 @@ function startChest(tid) {
 function startTopicExam(tid) { startRun('exam', buildTopicExam(tid), { tid, idx: planFor(tid).indexOf('exam'), intro: `Контрольная по ${D.topicById[tid].paragraph}. Как учитель спросит.` }); }
 function startBoss(chId, level) {
   const ch = D.topics.chapters.find(c => c.id === chId);
-  const intro = level === 3 ? `Босс. Даты с клавиатуры, жизней: ${Math.max(1, state.hearts)}.` : `Глава ${ch.id}, уровень ${level}: ${BOSS_LEVELS[level - 1].title}.`;
+  const intro = level === 3 ? `Босс. Даты с клавиатуры, жизней: ${Math.max(1, state.hearts)}.` : `${ChName(ch)}, уровень ${level}: ${BOSS_LEVELS[level - 1].title}.`;
   startRun('boss', buildBoss(ch, level), { chapter: ch, level, intro });
 }
 function startDaily() { startRun('daily', buildDaily(), { intro: 'Микс дня: то, что подзабылось.' }); }
@@ -797,7 +815,7 @@ function finishRun(lost) {
     else {
       bs['l' + lv] = Math.max(bs['l' + lv] || 0, pct);
       if (lv === 3 && passed) bs.won = true;
-      title = passed ? (lv === 3 ? `Босс главы ${ch} повержен. 🏅` : `Уровень ${lv} пройден: ${pct}%`) : `${pct}%. Нужно 70, чтобы открыть следующий.`;
+      title = passed ? (lv === 3 ? `Босс повержен: ${chName(chById(ch))}.` : `Уровень ${lv} пройден: ${pct}%`) : `${pct}%. Нужно 70, чтобы открыть следующий.`;
       text = run.meta.chapter.title; face = passed ? 'opti' : 'nik';
     }
     state.bosses[ch] = bs;
