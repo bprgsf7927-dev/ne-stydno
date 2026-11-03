@@ -334,3 +334,16 @@ main { padding-bottom: 12px; }
 .bottom { padding: 6px 18px calc(var(--tabs-h, 56px) + 12px); }
 .map-foot { margin: 4px 0 0; }
 .map { padding-bottom: 8px; }
+
+/* ---------- каркас приложения: шапка и панель — обычные блоки, прокручивается только середина ----------
+   Без position: fixed/sticky: на айфоне после сворачивания приложения fixed-панели «уезжали» в середину экрана. */
+html, body { height: 100%; overflow: hidden; }
+body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; background-attachment: scroll; }
+.top { position: static; flex: none; background: none; }
+.tabs { position: static; flex: none; }
+main#app { flex: 1 1 auto; min-height: 0; width: 100%; max-width: none; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  padding: 8px max(18px, calc((100% - 720px) / 2 + 18px)) 0; }
+.bottom { padding: 14px 0 16px; }
+body.on-welcome main#app { padding-top: calc(8px + env(safe-area-inset-top)); }
+#screen-welcome:not(.hidden) { min-height: calc(100% - 8px); }
+body.on-welcome main#app { padding-bottom: env(safe-area-inset-bottom); }

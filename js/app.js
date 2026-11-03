@@ -69,7 +69,23 @@ async function loadContent() {
 const byTopics = (arr, topics) => arr.filter(x => topics.includes(x.topic));
 
 // ---------- экраны ----------
+// прокручивается только середина экрана (main), панели сверху и снизу стоят на месте
+const scrollTop = () => { $('app').scrollTop = 0; };
+// автообновление: приложение с экрана «Домой» на айфоне подолгу живет в памяти и не видит новую версию.
+// При возврате в приложение сверяем версию на сервере; если вышла новая — перезагружаемся (но не посреди тренировки).
+let updateReady = false;
+// новый адрес с ?v= — браузер не возьмет старую страницу из кэша
+const reloadTo = (v) => location.replace(location.pathname + '?v=' + v);
+async function checkUpdate() {
+  try {
+    const html = await (await fetch('index.html?check=' + Date.now(), { cache: 'no-store' })).text();
+    const m = html.match(/window\.APP_V="([^"]+)"/);
+    if (m && window.APP_V && m[1] !== window.APP_V && !location.search.includes('v=' + m[1])) { updateReady = m[1]; if ($('screen-task').classList.contains('hidden')) reloadTo(m[1]); }
+  } catch (e) { /* нет сети — проверим в следующий раз */ }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
 function show(id) {
+  if (updateReady && id !== 'screen-task') { reloadTo(updateReady); return; }
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   $(id).classList.remove('hidden');
   // верхняя и нижняя панели закреплены на всех экранах, кроме стартовой; там подпись автора внутри экрана
@@ -77,7 +93,7 @@ function show(id) {
   document.body.classList.toggle('on-welcome', id === 'screen-welcome');
   measureBars();
   if (id === 'screen-home') renderTabs('map');
-  window.scrollTo(0, 0);
+  scrollTop();
 }
 
 // ---------- карта параграфа ----------
@@ -238,7 +254,7 @@ function renderHome() {
   if (lastInCh) foot.innerHTML = `<button class="btn ${chOpen ? 'primary' : ''}" id="to-boss" ${chOpen ? '' : 'disabled'}>${chOpen ? `Дальше: босс, ${chName(ch)} →` : `Босс, ${chName(ch)}: пройди все параграфы`}</button>`;
   else foot.innerHTML = nt ? `<button class="btn ${topicDone(tid) ? 'primary' : ''}" id="next-topic">Дальше: ${esc(D.topicById[nt].paragraph)} ${esc(D.topicById[nt].title)} →</button>` : '';
   box.appendChild(foot);
-  if ($('next-topic')) $('next-topic').onclick = () => { state.current = nt; save(); renderHome(); window.scrollTo(0, 0); };
+  if ($('next-topic')) $('next-topic').onclick = () => { state.current = nt; save(); renderHome(); scrollTop(); };
   if ($('to-boss')) $('to-boss').onclick = () => renderBoss(ch.id);
 }
 
@@ -286,7 +302,7 @@ function togglePicker(open) {
   $('picker').classList.toggle('hidden', !open);
   $('map').classList.toggle('hidden', open);
   document.querySelector('.home-row').classList.toggle('hidden', open);
-  if (open) { renderTopicPicker(); $('picker-foot').textContent = PICKER_FOOT[new Date().getDate() % PICKER_FOOT.length]; window.scrollTo(0, 0); }
+  if (open) { renderTopicPicker(); $('picker-foot').textContent = PICKER_FOOT[new Date().getDate() % PICKER_FOOT.length]; scrollTop(); }
 }
 $('topic-pill').onclick = () => togglePicker($('picker').classList.contains('hidden'));
 function openSubjects() {
@@ -950,5 +966,5 @@ function measureBars() {
 }
 if (window.ResizeObserver) { const ro = new ResizeObserver(measureBars); ro.observe(document.querySelector('.top')); ro.observe($('tabs')); }
 window.addEventListener('resize', measureBars);
-loadContent().then(() => { renderStats(); renderWelcome(); renderTabs('map'); if (hasProgress()) { renderHome(); show('screen-home'); } else show('screen-welcome'); })
+loadContent().then(() => { checkUpdate(); renderStats(); renderWelcome(); renderTabs('map'); if (hasProgress()) { renderHome(); show('screen-home'); } else show('screen-welcome'); })
   .catch(e => { $('map').innerHTML = `<p class="muted">Не удалось загрузить контент (${esc(e.message)}). Открой сайт через сервер, а не как файл.</p>`; });
