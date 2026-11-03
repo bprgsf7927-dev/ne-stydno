@@ -352,3 +352,7 @@ body.on-welcome main#app { padding-bottom: env(safe-area-inset-bottom); }
 /* подпись автора отдельно от служебного текста: отступ и пунктир-разделитель */
 .welcome-foot { display: flex; flex-direction: column; gap: clamp(10px, 2dvh, 18px); }
 .welcome-author { margin: 0 auto; padding-top: clamp(8px, 1.6dvh, 14px); border-top: 2px dashed #b9bfcd; font-family: Caveat, cursive; font-size: clamp(16px, 4.8vw, 20px); font-weight: 700; color: var(--ink); white-space: nowrap; width: 100%; text-align: center; }
+/* стартовая: воздух над человечками, а снизу не держим лишний запас под полоску «домой» */
+body.on-welcome main#app { padding-top: calc(env(safe-area-inset-top) + clamp(12px, 3.5dvh, 40px)); padding-bottom: max(6px, calc(env(safe-area-inset-bottom) - 18px)); }
+#screen-welcome:not(.hidden) { min-height: calc(100% - 4px); }
+.welcome-chars { --cw: clamp(78px, calc(24.5dvh - 90px), 145px); }
