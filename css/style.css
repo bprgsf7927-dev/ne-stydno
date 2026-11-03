@@ -347,3 +347,6 @@ main#app { flex: 1 1 auto; min-height: 0; width: 100%; max-width: none; overflow
 body.on-welcome main#app { padding-top: calc(8px + env(safe-area-inset-top)); }
 #screen-welcome:not(.hidden) { min-height: calc(100% - 8px); }
 body.on-welcome main#app { padding-bottom: env(safe-area-inset-bottom); }
+/* подпись автора отдельно от служебного текста: отступ и пунктир-разделитель */
+.welcome-foot { display: flex; flex-direction: column; gap: clamp(10px, 2dvh, 18px); }
+.welcome-author { margin: 0 auto; padding-top: clamp(8px, 1.6dvh, 14px); border-top: 2px dashed #b9bfcd; font-family: Caveat, cursive; font-size: clamp(16px, 4.8vw, 20px); font-weight: 700; color: var(--ink); white-space: nowrap; width: 100%; text-align: center; }
