@@ -72,8 +72,10 @@ const byTopics = (arr, topics) => arr.filter(x => topics.includes(x.topic));
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   $(id).classList.remove('hidden');
-  // верхняя и нижняя панели закреплены на всех экранах; на стартовой подпись автора внутри экрана
+  // верхняя и нижняя панели закреплены на всех экранах, кроме стартовой; там подпись автора внутри экрана
+  // на стартовой панелей нет — только персонажи, заголовок и «Начать»
   document.body.classList.toggle('on-welcome', id === 'screen-welcome');
+  measureBars();
   if (id === 'screen-home') renderTabs('map');
   window.scrollTo(0, 0);
 }
@@ -942,7 +944,7 @@ const hasProgress = () => state.started || Object.keys(state.steps || {}).length
 
 // высоты закрепленных панелей — в CSS-переменные, чтобы стартовая помещалась ровно в экран
 function measureBars() {
-  const r = document.documentElement.style;
+  const r = document.documentElement.style; if (!document.querySelector('.top')) return;
   r.setProperty('--top-h', document.querySelector('.top').offsetHeight + 'px');
   r.setProperty('--tabs-h', $('tabs').offsetHeight + 'px');
 }
