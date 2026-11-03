@@ -72,7 +72,8 @@ const byTopics = (arr, topics) => arr.filter(x => topics.includes(x.topic));
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
   $(id).classList.remove('hidden');
-  $('tabs').classList.toggle('hidden', id === 'screen-task' || id === 'screen-welcome');
+  // верхняя и нижняя панели закреплены на всех экранах; на стартовой подпись автора внутри экрана
+  document.body.classList.toggle('on-welcome', id === 'screen-welcome');
   if (id === 'screen-home') renderTabs('map');
   window.scrollTo(0, 0);
 }
@@ -939,5 +940,13 @@ function renderWelcome() {
 $('welcome-start').onclick = () => { state.started = true; save(); renderHome(); show('screen-home'); };
 const hasProgress = () => state.started || Object.keys(state.steps || {}).length > 0;
 
+// высоты закрепленных панелей — в CSS-переменные, чтобы стартовая помещалась ровно в экран
+function measureBars() {
+  const r = document.documentElement.style;
+  r.setProperty('--top-h', document.querySelector('.top').offsetHeight + 'px');
+  r.setProperty('--tabs-h', $('tabs').offsetHeight + 'px');
+}
+if (window.ResizeObserver) { const ro = new ResizeObserver(measureBars); ro.observe(document.querySelector('.top')); ro.observe($('tabs')); }
+window.addEventListener('resize', measureBars);
 loadContent().then(() => { renderStats(); renderWelcome(); renderTabs('map'); if (hasProgress()) { renderHome(); show('screen-home'); } else show('screen-welcome'); })
   .catch(e => { $('map').innerHTML = `<p class="muted">Не удалось загрузить контент (${esc(e.message)}). Открой сайт через сервер, а не как файл.</p>`; });

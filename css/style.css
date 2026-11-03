@@ -292,3 +292,50 @@ main { padding-bottom: 96px; }
 .subject.on { border-color: var(--ink); color: var(--ink); }
 .subject.active { border-color: var(--accent); background: var(--accent-soft); }
 .subject b { font-family: Caveat, cursive; font-size: 24px; }
+
+/* ---------- закрепленные панели и адаптив под высоту экрана ---------- */
+/* шапка закреплена сверху, как нижняя панель снизу; линейка тетради продолжается под ней */
+.top { position: sticky; top: 0; z-index: 20; max-width: none; padding-top: calc(12px + env(safe-area-inset-top)); padding-bottom: 10px;
+  background: var(--bg) repeating-linear-gradient(0deg, transparent 0 27px, #e9ecf5 27px 28px) fixed; border-bottom: 3px solid var(--ink); }
+.top > * { max-width: 720px; }
+.tabs { max-width: none; }
+/* узкие телефоны (360–400): шапка в одну строку без наездов */
+@media (max-width: 400px) {
+  .top { padding-left: 12px; padding-right: 12px; }
+  .brand { font-size: 20px; }
+  .beta { font-size: 14px; padding: 0 5px; margin-left: 3px; }
+  .stats { gap: 7px; font-size: 21px; }
+  .stats svg { width: 18px; height: 18px; }
+}
+/* стартовая: ровно один экран между панелями; сжимаются отступы, а не человечки */
+body.on-welcome .bottom { display: none; }
+body.on-welcome main { padding-bottom: 0; }
+#screen-welcome:not(.hidden) { display: flex; flex-direction: column; justify-content: space-evenly; align-items: center;
+  min-height: calc(100vh - var(--top-h, 60px) - var(--tabs-h, 62px));
+  min-height: calc(100dvh - var(--top-h, 60px) - var(--tabs-h, 62px)); margin-top: 0; padding: 0; }
+#screen-welcome > * { width: 100%; }
+#screen-welcome .btn.big { width: auto; }
+.welcome-chars { margin: 0; }
+.welcome-title { font-size: clamp(34px, 5dvh, 48px); margin: 0; line-height: 1.05; }
+.welcome-sub { font-size: clamp(14px, 2.1dvh, 17px); line-height: 1.35; margin: 0; }
+.welcome-bubbles { gap: clamp(4px, .9dvh, 8px); margin: 0; }
+.bubble { padding: clamp(3px, .8dvh, 8px) 14px; }
+#screen-welcome .btn.big { margin: 0; padding: clamp(4px, 1dvh, 10px) 44px; }
+.welcome-note { margin: 0; line-height: 1.35; }
+/* у человечков сверху в SVG пустое место под костюм — на стартовой его срезаем (сами человечки того же размера) */
+.welcome-chars svg { margin-top: -26px; margin-bottom: -6px; }
+/* короткие экраны (iPhone SE, старые Android): ужимаем текст и отступы */
+@media (max-height: 700px) {
+  .welcome-title { font-size: 31px; }
+  .welcome-sub { font-size: 13.5px; line-height: 1.3; }
+  .bubble { font-size: 14px; }
+  .bubble b { font-size: 20px; }
+  #screen-welcome .btn.big { font-size: 27px; }
+  .welcome-note { font-size: 12.5px; line-height: 1.3; }
+}
+@media (max-height: 660px) {
+  .welcome-title { font-size: 29px; }
+  .bubble { padding: 2px 12px; }
+  .welcome-bubbles { gap: 3px; }
+  .welcome-chars svg { margin-top: -32px; }
+}
