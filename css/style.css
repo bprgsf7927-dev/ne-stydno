@@ -329,3 +329,8 @@ body.on-welcome main { padding-bottom: 0; }
 .tab { font-size: 15px; gap: 0; padding: 1px 10px; }
 .tab svg { width: 22px; height: 22px; }
 main { padding-bottom: 76px; }
+/* подпись автора сразу под контентом и всегда над нижней панелью (высота панели меряется в --tabs-h) */
+main { padding-bottom: 12px; }
+.bottom { padding: 6px 18px calc(var(--tabs-h, 56px) + 12px); }
+.map-foot { margin: 4px 0 0; }
+.map { padding-bottom: 8px; }
