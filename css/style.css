@@ -322,7 +322,9 @@ body.on-welcome main { padding-bottom: 0; }
 #screen-welcome .btn.big { margin: 0; padding: clamp(4px, 1dvh, 10px) 44px; }
 .welcome-note { margin: 0; line-height: 1.35; }
 /* у человечков сверху в SVG пустое место под костюм — на стартовой его срезаем (сами человечки того же размера) */
-.welcome-chars svg { margin-top: -26px; margin-bottom: -6px; }
+/* человечки растут с высотой экрана; по бокам в SVG пустые поля — их перекрываем, чтобы трое влезали по ширине */
+.welcome-chars { --cw: clamp(80px, calc(24.5dvh - 78px), 150px); gap: 0; }
+.welcome-chars svg { flex: none; width: var(--cw); height: auto; margin: calc(var(--cw) * -0.3) calc(var(--cw) * -0.1) -6px; }
 
 /* нижняя панель компактнее: на айфоне системная полоска внизу и так дает отступ */
 .tabs { padding: 3px 8px max(3px, calc(env(safe-area-inset-bottom) - 16px)); }
