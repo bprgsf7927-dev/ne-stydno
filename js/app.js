@@ -33,7 +33,7 @@ function loadState() {
   } catch { /* нет доступа к хранилищу — работаем в памяти */ }
   return {};
 }
-const state = Object.assign({ v: 3, xp: 0, streak: 0, lastDay: null, wrong: [], seen: {}, steps: {}, layouts: {}, hearts: 0, bosses: {}, current: null, moreClicks: 0 }, loadState());
+const state = Object.assign({ v: 3, xp: 0, streak: 0, lastDay: null, wrong: [], seen: {}, steps: {}, layouts: {}, hearts: 0, bosses: {}, gym: {}, current: null, moreClicks: 0 }, loadState());
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch { /* приватный режим */ } }
 function touchStreak() {
   const t = today();
@@ -728,7 +728,7 @@ let run = null;
 function startRun(kind, tasks, meta) {
   // tasks — основной круг; wrong — задания на доработку; round — номер круга (0 основной); hint — уровень подсказки в круге
   run = { kind, tasks, i: 0, score: 0, hearts: kind === 'boss' && meta.level === 3 ? Math.max(1, state.hearts) : null, meta, xp: 0,
-          firstPass: null, wrong: [], round: 0, hint: 0, redo: kind === 'step' || kind === 'exam' || kind === 'chest' };
+          firstPass: null, wrong: [], round: 0, hint: 0, redo: kind === 'step' || kind === 'exam' || kind === 'chest' || kind === 'gym' };
   touchStreak(); renderStats();
   $('hearts').classList.toggle('hidden', run.hearts === null);
   speak('neutral', meta.intro || '');
@@ -747,6 +747,96 @@ function startBoss(chId, level) {
   const ch = D.topics.chapters.find(c => c.id === chId);
   const intro = level === 3 ? `Босс. Даты с клавиатуры, жизней: ${Math.max(1, state.hearts)}.` : `${ChName(ch)}, уровень ${level}: ${BOSS_LEVELS[level - 1].title}.`;
   startRun('boss', buildBoss(ch, level), { chapter: ch, level, intro });
+}
+// ---------- качалка: вся глава за одну тренировку ----------
+// Каждый пункт главы (дата, термин, личность) встречается дважды, во второй раз — в другой механике.
+// Задания собираются заново при каждом запуске, ошибки возвращаются в конце с подсказкой.
+const GYM_MODES = {
+  dates:   { title: 'Даты', items: (ts) => byTopics(D.facts, ts), word: ['дата', 'даты', 'дат'] },
+  terms:   { title: 'Термины', items: (ts) => byTopics(D.terms, ts), word: ['термин', 'термина', 'терминов'] },
+  persons: { title: 'Личности', items: (ts) => byTopics(D.persons, ts), word: ['личность', 'личности', 'личностей'] },
+};
+const GYM_SEC = 10; // в среднем секунд на одну встречу с пунктом (пары и порядок — 4 пункта за ~30 с)
+const GYM_TARGET = 7.5 * 60; // цель по длительности: 7–10 минут
+// сколько раз встречается каждый пункт: минимум 2, в маленьких главах больше (до 4), чтобы набрать 7–10 минут
+const gymSec = (mode) => mode === 'dates' ? 12 : GYM_SEC; // с датами дольше: год печатают с клавиатуры
+const gymReps = (n, mode) => Math.min(4, Math.max(2, Math.ceil(GYM_TARGET / (n * gymSec(mode)))));
+const plural = (n, w) => w[(n % 10 === 1 && n % 100 !== 11) ? 0 : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? 1 : 2];
+const mmss = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+let gymMode = 'terms';
+function tTermByDef(term, pool) {
+  const opts = shuffle([term.term, ...pick(pool.filter(t => t.id !== term.id).map(t => t.term), 3)]);
+  return choice(`${term.definition}. Как это называется?`, opts, term.term, null, `${term.term} — ${term.definition[0].toLowerCase() + term.definition.slice(1)}`);
+}
+function tPersonByWho(p, pool) {
+  const opts = shuffle([p.name, ...pick(pool.filter(x => x.id !== p.id).map(x => x.name), 3)]);
+  return choice(`${p.who}. Кто это?`, opts, p.name, null, `${p.name} — ${p.who[0].toLowerCase() + p.who.slice(1)}`);
+}
+function buildGym(mode, ch) {
+  const items = GYM_MODES[mode].items(ch.topics);
+  const all = mode === 'dates' ? D.facts : mode === 'terms' ? D.terms : D.persons;
+  const pool = items.length >= 6 ? items : all; // для дистракторов
+  // механики: [имя, вес, сколько пунктов берет, генератор]
+  const M = mode === 'dates' ? [
+    ['choice', 3, 1, ([f]) => tChoiceDate(f, pool)],
+    ['pairs', 2, 4, (fs) => tPairs(fs)],
+    ['type', 2, 1, ([f]) => tType(f)],
+    ['order', 1, 4, (fs) => tOrder(fs)],
+  ] : mode === 'terms' ? [
+    ['choice', 3, 1, ([t]) => tChoiceTerm(t, pool)],
+    ['rev', 3, 1, ([t]) => tTermByDef(t, pool)],
+    ['pairs', 2, 4, (ts) => tPairsTerms(ts)],
+  ] : [
+    ['choice', 3, 1, ([p]) => tChoicePerson(p, pool)],
+    ['rev', 3, 1, ([p]) => tPersonByWho(p, pool)],
+    ['pairs', 2, 4, (ps) => tPairsPersons(ps)],
+  ];
+  const ok = (m, it) => !(m[0] === 'type' && !yearFacts([it]).length);
+  const queue = [];
+  for (let k = 0; k < gymReps(items.length, mode); k++) { // круги: каждый — все пункты в новом порядке, без повтора на стыке
+    const r = shuffle(items);
+    if (queue.length && r.length > 1 && r[0].id === queue[queue.length - 1].id) r.push(r.shift());
+    queue.push(...r);
+  }
+  const last = {}, tasks = [];
+  const weighted = M.flatMap(m => Array(m[1]).fill(m));
+  while (queue.length) {
+    let m = pick(weighted, 1)[0], tries = 0;
+    while ((last[queue[0].id] === m[0] || !ok(m, queue[0])) && tries++ < 6) m = pick(weighted, 1)[0];
+    let take = [queue[0]];
+    if (m[2] > 1) { // групповая механика: следующие разные пункты (для порядка — с разными годами)
+      take = []; const ids = new Set(), years = new Set();
+      for (const it of queue) {
+        if (ids.has(it.id) || (m[0] === 'order' && (years.has(it.year) || !yearFacts([it]).length))) continue;
+        ids.add(it.id); years.add(it.year); take.push(it); if (take.length === m[2]) break;
+      }
+      if (take.length < Math.min(3, m[2])) { m = M[0]; take = [queue[0]]; }
+    }
+    for (const it of take) { queue.splice(queue.indexOf(it), 1); last[it.id] = m[0]; }
+    tasks.push(m[3](take));
+  }
+  return tasks;
+}
+function startGym(mode, chId) {
+  const ch = chById(chId), n = GYM_MODES[mode].items(ch.topics).length;
+  startRun('gym', buildGym(mode, ch), { mode, chId, start: Date.now(), intro: `Качалка: ${GYM_MODES[mode].title.toLowerCase()}, ${chName(ch)}. ${n} ${plural(n, GYM_MODES[mode].word)}, каждый пункт ${gymReps(n, mode) === 2 ? 'дважды' : gymReps(n, mode) + ' раза'}.` });
+}
+function renderGym() {
+  $('gym-seg').innerHTML = Object.entries(GYM_MODES).map(([k, m]) => `<button class="seg-btn${k === gymMode ? ' active' : ''}" data-mode="${k}">${m.title}</button>`).join('');
+  $('gym-seg').querySelectorAll('.seg-btn').forEach(b => b.onclick = () => { gymMode = b.dataset.mode; renderGym(); });
+  $('gym-pic').innerHTML = charSVG('dushka', 'idle', null, 46);
+  const box = $('gym-list'); box.innerHTML = ''; let book = null;
+  for (const ch of D.topics.chapters) {
+    const n = GYM_MODES[gymMode].items(ch.topics).length; if (!n) continue;
+    if (ch.book !== book) { book = ch.book; const h = document.createElement('div'); h.className = 'picker-book'; h.textContent = book; box.appendChild(h); }
+    const g = state.gym[gymMode + ':' + ch.id];
+    const b = document.createElement('button'); b.className = 'picker-item gym-item' + (g ? ' done' : '');
+    b.innerHTML = `<div class="picker-body"><div class="picker-para">${ChName(ch)}</div><div class="picker-title">${esc(ch.title)}</div>
+      <div class="small muted">${n} ${plural(n, GYM_MODES[gymMode].word)} · около ${Math.max(1, Math.round(n * gymReps(n, gymMode) * gymSec(gymMode) / 60))} мин${g ? ` · лучший ${g.best}%, ${mmss(g.time)}` : ''}</div></div>
+      <span class="gym-go">${tabSVG('gym')}</span>`;
+    b.onclick = () => startGym(gymMode, ch.id);
+    box.appendChild(b);
+  }
 }
 function startDaily() { startRun('daily', buildDaily(), { intro: 'Микс дня: то, что подзабылось.' }); }
 
@@ -849,6 +939,14 @@ function finishRun(lost) {
     }
     state.bosses[ch] = bs;
     if (lv === 3) state.hearts = 0;
+  } else if (run.kind === 'gym') {
+    const { mode, chId, start } = run.meta, key = mode + ':' + chId, prev = state.gym[key] || { best: 0, time: 0, runs: 0 };
+    const sec = Math.round((Date.now() - start) / 1000);
+    const better = pct > prev.best || (pct === prev.best && (!prev.time || sec < prev.time));
+    state.gym[key] = { best: better ? pct : prev.best, time: better ? sec : prev.time, runs: prev.runs + 1 };
+    title = pct === 100 ? `Вся глава без единой ошибки. ${mmss(sec)}` : `${pct}% с первого раза. Добил до конца за ${mmss(sec)}.`;
+    text = `${GYM_MODES[mode].title}, ${chName(chById(chId))}${better && prev.runs ? ' · новый рекорд' : ''}`;
+    face = pct >= 90 ? 'opti' : 'dushka';
   } else {
     title = `${s} из ${n}`; text = 'Микс дня закрыт. Завтра будет новый.'; face = s === n ? 'opti' : 'dushka';
   }
@@ -859,6 +957,7 @@ function finishRun(lost) {
   $('result-xp').textContent = run.xp ? `+${run.xp} XP` : '';
   const failedStep = run.kind === 'step' && pct < 70 && !firstStep;
   $('cards-btn').classList.toggle('hidden', !failedStep);
+  $('home-btn').textContent = run.kind === 'gym' ? 'К качалке' : run.kind === 'boss' ? 'К боссу' : 'На главную';
   show('screen-result');
 }
 
@@ -870,14 +969,15 @@ function askQuit() {
   $('hint-text').innerHTML = `<b>Ник:</b> Если уйдешь сейчас, прогресс этой тренировки сгорит. Осталось совсем немного.<div class="row"><button class="btn" id="quit-yes">Все равно уйти</button><button class="btn primary" id="quit-no">Остаюсь</button></div>`;
   box.classList.remove('hidden');
   $('quit-no').onclick = (e) => { e.stopPropagation(); box.classList.add('hidden'); };
-  $('quit-yes').onclick = (e) => { e.stopPropagation(); box.classList.add('hidden'); renderHome(); show('screen-home'); };
+  $('quit-yes').onclick = (e) => { e.stopPropagation(); box.classList.add('hidden'); if (run && run.kind === 'gym') { renderGym(); show('screen-gym'); renderTabs('gym'); return; } renderHome(); show('screen-home'); };
 }
-$('again-btn').onclick = () => run.kind === 'step' ? runStep(run.meta.tid, run.meta.idx) : run.kind === 'chest' ? startChest(run.meta.tid) : run.kind === 'exam' ? startTopicExam(run.meta.tid) : run.kind === 'boss' ? startBoss(run.meta.chapter.id, run.meta.level) : startDaily();
-$('home-btn').onclick = () => { if (run && run.kind === 'boss') return renderBoss(run.meta.chapter.id); renderHome(); show('screen-home'); };
+$('again-btn').onclick = () => run.kind === 'step' ? runStep(run.meta.tid, run.meta.idx) : run.kind === 'chest' ? startChest(run.meta.tid) : run.kind === 'exam' ? startTopicExam(run.meta.tid) : run.kind === 'boss' ? startBoss(run.meta.chapter.id, run.meta.level) : run.kind === 'gym' ? startGym(run.meta.mode, run.meta.chId) : startDaily();
+$('home-btn').onclick = () => { if (run && run.kind === 'boss') return renderBoss(run.meta.chapter.id); if (run && run.kind === 'gym') { renderGym(); show('screen-gym'); renderTabs('gym'); return; } renderHome(); show('screen-home'); };
 $('cards-btn').onclick = () => openCards(run.meta.tid, run.meta.idx, true);
 $('daily-btn').onclick = startDaily;
 // нижняя панель
 const TAB_ICON = {
+  gym:    '<path d="M8 26v12M16 18v28M48 18v28M56 26v12M16 32h32"/>',
   map:    '<path d="M8 50l14-10l12 8l14-12l12 8" /><path d="M8 50v-36l14-10l12 8l14-12l12 8v36" />',
   cabinet:'<path d="M32 10q-12 0-12 12t12 12t12-12t-12-12z"/><path d="M12 56q0-18 20-18t20 18"/>',
   events: '<path d="M12 16h40v38H12z"/><path d="M12 28h40M22 10v10M42 10v10"/><path d="M22 40l6 6l12-12"/>',
@@ -885,13 +985,14 @@ const TAB_ICON = {
 };
 const tabSVG = (k) => `<svg viewBox="0 0 64 64" width="26" height="26" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">${TAB_ICON[k]}</svg>`;
 function renderTabs(active) {
-  const tabs = [['map', 'Карта'], ['book', 'Книжка'], ['events', 'События'], ['cabinet', 'Кабинет']];
+  const tabs = [['map', 'Карта'], ['gym', 'Качалка'], ['book', 'Книжка'], ['events', 'События'], ['cabinet', 'Кабинет']];
   $('tabs').innerHTML = tabs.map(([k, t]) => `<button class="tab${k === active ? ' active' : ''}" data-tab="${k}">${tabSVG(k)}<span>${t}</span></button>`).join('');
   $('tabs').querySelectorAll('.tab').forEach(b => b.onclick = () => goTab(b.dataset.tab));
 }
 function goTab(k) {
   if (!$('screen-task').classList.contains('hidden')) return askQuit();
   if (k === 'map') { renderHome(); show('screen-home'); }
+  else if (k === 'gym') { renderGym(); show('screen-gym'); }
   else if (k === 'book') { openCards(currentTopic(), 0, false); }
   else { renderSoon(k); show('screen-soon'); }
   renderTabs(k);

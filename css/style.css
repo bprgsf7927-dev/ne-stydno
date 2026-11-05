@@ -356,3 +356,15 @@ body.on-welcome main#app { padding-bottom: env(safe-area-inset-bottom); }
 body.on-welcome main#app { padding-top: calc(env(safe-area-inset-top) + clamp(12px, 3.5dvh, 40px)); padding-bottom: max(6px, calc(env(safe-area-inset-bottom) - 18px)); }
 #screen-welcome:not(.hidden) { min-height: calc(100% - 4px); }
 .welcome-chars { --cw: clamp(78px, calc(24.5dvh - 90px), 145px); }
+
+/* качалка */
+.gym-title { text-align: center; margin: 4px 0 10px; }
+.gym-hello { margin-bottom: 12px; }
+.seg { display: flex; gap: 6px; justify-content: center; margin: 0 0 6px; }
+.seg-btn { font-family: Caveat, cursive; font-size: 21px; font-weight: 700; background: var(--card); color: var(--muted); border: 2.5px solid #9aa0b0; border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; padding: 2px 12px; cursor: pointer; }
+.seg-btn.active { color: var(--accent); border-color: var(--accent); border-width: 3px; transform: rotate(-1.5deg); }
+.gym-item .picker-body { flex: 1; }
+.gym-go { color: var(--accent); line-height: 0; flex: none; }
+.gym-go svg { width: 30px; height: 30px; }
+.gym-item.done { border-color: var(--ok); }
+.tab { padding: 1px 4px; }
