@@ -826,7 +826,7 @@ function renderGym() {
   $('gym-seg').innerHTML = Object.entries(GYM_MODES).map(([k, m]) => `<button class="seg-btn${k === gymMode ? ' active' : ''}" data-mode="${k}">${m.title}</button>`).join('');
   $('gym-seg').querySelectorAll('.seg-btn').forEach(b => b.onclick = () => { gymMode = b.dataset.mode; renderGym(); });
   $('gym-pic').innerHTML = charSVG('dushka', 'idle', null, 46);
-  $('gym-say').innerHTML = `<b>Душка:</b> Вся глава за один подход. Всего 7–10 минут — и ты готов к проверочной по ${{ dates: 'датам', terms: 'терминам', persons: 'личностям' }[gymMode]}.`;
+  $('gym-say').innerHTML = `<b>Душка:</b> Вся глава за один подход. Всего 7–10 минут — и ты готов к проверочной по ${{ dates: 'датам', terms: 'терминам', persons: 'личностям' }[gymMode]}. Не уверен — повторяй, пока не надоест.`;
   const box = $('gym-list'); box.innerHTML = ''; let book = null;
   for (const ch of D.topics.chapters) {
     const n = GYM_MODES[gymMode].items(ch.topics).length; if (!n) continue;
