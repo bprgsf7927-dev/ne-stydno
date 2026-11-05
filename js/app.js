@@ -820,6 +820,7 @@ function buildGym(mode, ch) {
 function startGym(mode, chId) {
   const ch = chById(chId), n = GYM_MODES[mode].items(ch.topics).length;
   startRun('gym', buildGym(mode, ch), { mode, chId, start: Date.now(), intro: `Качалка: ${GYM_MODES[mode].title.toLowerCase()}, ${chName(ch)}. ${n} ${plural(n, GYM_MODES[mode].word)}, каждый пункт ${gymReps(n, mode) === 2 ? 'дважды' : gymReps(n, mode) + ' раза'}.` });
+  renderTabs('gym');
 }
 function renderGym() {
   $('gym-seg').innerHTML = Object.entries(GYM_MODES).map(([k, m]) => `<button class="seg-btn${k === gymMode ? ' active' : ''}" data-mode="${k}">${m.title}</button>`).join('');
@@ -844,6 +845,8 @@ function renderHearts() { if (run.hearts !== null) $('hearts').innerHTML = heart
 function renderTask() {
   const t = run.tasks[run.i];
   $('progress-bar').style.width = (run.i / run.tasks.length * 100) + '%';
+  // счетчик: сколько заданий пройдено и сколько всего — чтобы было видно, что тренировка конечна
+  $('progress-count').textContent = run.round > 0 ? `ошибки: ${run.i + 1} из ${run.tasks.length}` : `${run.i + 1} из ${run.tasks.length}`;
   renderHearts();
   ['feedback', 'assoc', 'more-btn', 'more-text', 'check-btn'].forEach(id => $(id).classList.add('hidden'));
   $('feedback').classList.remove('ok', 'bad', 'half');
@@ -908,7 +911,7 @@ function next() {
 }
 
 function finishRun(lost) {
-  $('progress-bar').style.width = '100%';
+  $('progress-bar').style.width = '100%'; $('progress-count').textContent = '';
   const n = run.tasks.length, s = run.score;
   const pct = run.redo ? (run.firstPass ?? Math.round(s / n * 100)) : Math.round(s / n * 100);
   state.xp += run.xp;
