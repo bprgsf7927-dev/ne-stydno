@@ -6,6 +6,7 @@
 //  2) Telegram: POST ?r=tg (вебхук)   → ученик нажал «Старт», бот привязывает код к его Telegram id
 //  3) сайт: GET ?r=check&code=<код>   → раз в 2 секунды; когда код привязан — выдаем токен сессии
 //  4) сайт: GET/PUT ?r=progress       → с заголовком Authorization: Bearer <токен>
+//  Один раз после настройки: GET ?r=setup — функция сама подключает вебхук бота (токен никому показывать не нужно)
 //
 // Переменные окружения функции:
 //  BOT_TOKEN       — токен бота от @BotFather (секрет, только здесь, в репозиторий не кладем)
@@ -116,6 +117,15 @@ module.exports.handler = async function (event, ctx) {
         const code = crypto.randomBytes(8).toString('hex');
         await s3(ctx, 'PUT', `pending/${code}.json`, { t: Date.now() });
         return reply(200, { code, link: `https://t.me/${ENV.BOT_USERNAME}?start=${code}` });
+      }
+      case 'setup': { // подключить вебхук бота к этой функции (можно вызывать повторно, секреты не покидают функцию)
+        const url = `https://functions.yandexcloud.net/${ctx.functionName}?r=tg`;
+        const r = await fetch(`https://api.telegram.org/bot${ENV.BOT_TOKEN}/setWebhook`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, secret_token: ENV.WEBHOOK_SECRET, allowed_updates: ['message'], drop_pending_updates: true }),
+        });
+        const t = await r.json();
+        return reply(200, { ok: !!t.ok, telegram: t.description || '' });
       }
       case 'check': { // сайт ждет, пока ученик нажмет «Старт» в боте
         const code = String(q.code || '');
