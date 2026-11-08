@@ -15,7 +15,7 @@
 <meta property="og:url" content="https://bprgsf7927-dev.github.io/ne-stydno/">
 <meta property="og:locale" content="ru_RU">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="css/style.css?v=202611051046">
+<link rel="stylesheet" href="css/style.css?v=202611081410">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="assets/icon.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png?v=2">
@@ -118,6 +118,24 @@
     <div class="seg" id="gym-seg"></div>
     <div id="gym-list"></div>
   </section>
+  <!-- Кабинет: аватар, ник, рекорды. Конструктор аватара — js/avatar.js -->
+  <section id="screen-cabinet" class="screen hidden">
+    <h1 class="gym-title">Кабинет</h1>
+    <div class="cab-top">
+      <div class="cab-avatar" id="cab-avatar"></div>
+      <div class="cab-side">
+        <input id="cab-nick" class="cab-nick" maxlength="16" placeholder="как тебя звать?" autocomplete="off">
+        <div class="cab-stats" id="cab-stats"></div>
+      </div>
+    </div>
+    <div class="character cab-hello"><div class="char-pic" id="cab-pic"></div><div class="char-say" id="cab-say"></div></div>
+    <div class="picker-frame">
+      <div class="row cab-row"><b class="cab-h">Собери человечка</b><button class="btn small" id="cab-random">наугад</button></div>
+      <div id="cab-parts"></div>
+    </div>
+    <div class="row"><button class="btn" id="cab-save">Сохранить прогресс в облаке</button></div>
+    <p class="small muted" style="text-align:center">Пока прогресс живет только в этом телефоне. Вход появится скоро.</p>
+  </section>
   <section id="screen-soon" class="screen hidden" style="text-align:center">
     <div class="char-pic big" id="soon-pic"></div>
     <h1 id="soon-title"></h1>
@@ -142,8 +160,9 @@
 
 <div id="hint" class="hint hidden"><div class="hint-box"><b id="hint-title"></b><p id="hint-text"></p><span class="small muted">нажми, чтобы закрыть</span></div></div>
 <nav class="tabs" id="tabs"></nav>
-<script>window.APP_V="202611051046";</script>
-<script src="js/characters.js?v=202611051046"></script>
-<script src="js/app.js?v=202611051046"></script>
+<script>window.APP_V="202611081410";</script>
+<script src="js/characters.js?v=202611081410"></script>
+<script src="js/avatar.js?v=202611051046"></script>
+<script src="js/app.js?v=202611081410"></script>
 </body>
 </html>

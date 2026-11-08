@@ -33,7 +33,9 @@ function loadState() {
   } catch { /* нет доступа к хранилищу — работаем в памяти */ }
   return {};
 }
-const state = Object.assign({ v: 3, xp: 0, streak: 0, lastDay: null, wrong: [], seen: {}, steps: {}, layouts: {}, hearts: 0, bosses: {}, gym: {}, current: null, moreClicks: 0 }, loadState());
+const state = Object.assign({ v: 3, xp: 0, streak: 0, lastDay: null, wrong: [], seen: {}, steps: {}, layouts: {}, hearts: 0, bosses: {}, gym: {}, current: null, moreClicks: 0, profile: null }, loadState());
+// профиль ученика: ник и аватар (js/avatar.js). Появляется при первом заходе в кабинет; дальше уедет в аккаунт
+if (!state.profile) state.profile = { nick: '', avatar: null };
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch { /* приватный режим */ } }
 function touchStreak() {
   const t = today();
@@ -998,9 +1000,35 @@ function goTab(k) {
   if (k === 'map') { renderHome(); show('screen-home'); }
   else if (k === 'gym') { renderGym(); show('screen-gym'); }
   else if (k === 'book') { openCards(currentTopic(), 0, false); }
+  else if (k === 'cabinet') { renderCabinet(); show('screen-cabinet'); }
   else { renderSoon(k); show('screen-soon'); }
   renderTabs(k);
 }
+
+// ---------- кабинет ----------
+// Сколько корон собрано: шаг с best === 100 — это корона (см. finishRun)
+function crownsCount() { return Object.values(state.steps).filter(s => s.best === 100).length; }
+function renderCabinet() {
+  const p = state.profile;
+  if (!p.avatar) { p.avatar = avatarRandom(); save(); } // первый заход — случайный человечек, дальше свой
+  $('cab-avatar').innerHTML = avatarSVG(p.avatar, 110);
+  $('cab-nick').value = p.nick || '';
+  const gymBest = Math.max(0, ...Object.values(state.gym).map(g => g.best || 0));
+  $('cab-stats').innerHTML = [[STAR(), state.xp, 'опыт'], [FIRE(), state.streak, 'дней подряд'], [CROWN(), crownsCount(), 'корон'], ['', gymBest ? gymBest + '%' : '—', 'качалка']]
+    .map(([ic, v, t]) => `<div class="cab-stat">${ic}<b>${v}</b><span class="small muted">${t}</span></div>`).join('');
+  $('cab-pic').innerHTML = charSVG('opti', 'happy', null, 56);
+  $('cab-say').innerHTML = `<b>Опти:</b> ${esc(p.nick ? `${p.nick}, это ты? Похож!` : 'Собери себя. Можно криво, у нас тут все такие.')}`;
+  // по строке на слой: кнопки-варианты в стиле seg-btn, активный подсвечен
+  $('cab-parts').innerHTML = Object.entries(AVATAR_PARTS).map(([layer, def]) => `
+    <div class="cab-layer"><span class="cab-layer-name">${def.title}</span><div class="seg wrap">${def.items.map(it => `<button class="seg-btn${p.avatar[layer] === it.id ? ' active' : ''}" data-layer="${layer}" data-id="${it.id}">${it.name}</button>`).join('')}</div></div>`).join('')
+    + `<div class="cab-layer"><span class="cab-layer-name">Цвет</span><div class="seg wrap">${AVATAR_COLORS.map(c => `<button class="cab-color${p.avatar.color === c ? ' active' : ''}" data-color="${c}" style="background:${c}" aria-label="цвет"></button>`).join('')}</div></div>`;
+  $('cab-parts').querySelectorAll('[data-layer]').forEach(b => b.onclick = () => { p.avatar[b.dataset.layer] = b.dataset.id; save(); renderCabinet(); });
+  $('cab-parts').querySelectorAll('[data-color]').forEach(b => b.onclick = () => { p.avatar.color = b.dataset.color; save(); renderCabinet(); });
+}
+// ник: без перерисовки экрана, иначе тап по кнопке после ввода теряется (экран пересобирается под пальцем)
+$('cab-nick').oninput = (e) => { state.profile.nick = e.target.value.trim(); save(); if (state.profile.nick) $('cab-say').innerHTML = `<b>Опти:</b> ${esc(`${state.profile.nick}, это ты? Похож!`)}`; };
+$('cab-random').onclick = () => { state.profile.avatar = avatarRandom(); save(); renderCabinet(); };
+$('cab-save').onclick = () => { $('hint-title').textContent = 'Скоро'; $('hint-text').textContent = 'Вход через Telegram или почту сейчас делается. Когда появится — прогресс с этого телефона переедет в облако, ничего не потеряется.'; $('hint').classList.remove('hidden'); };
 function renderSoon(k) {
   const who = k === 'events' ? 'nik' : 'dushka';
   $('soon-pic').innerHTML = charSVG(who, 'idle', null, 90);
