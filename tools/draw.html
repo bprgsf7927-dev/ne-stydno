@@ -39,7 +39,7 @@
   <button class="btn" id="clear">стереть все</button>
 </div>
 <div class="row">
-  <label>слой: <select id="layer"><option value="extra">штука (шапка, шарф…)</option><option value="hair">волосы</option><option value="mouth">рот</option><option value="eyes">глаза</option><option value="head">голова</option></select></label>
+  <label>в какой блок avatar.js: <select id="layer"><option value="extra">штука (шапка, шарф…)</option><option value="hair">волосы</option><option value="mouth">рот</option><option value="eyes">глаза</option><option value="head">голова</option></select></label>
 </div>
 <div class="row">
   <label>id (латиницей): <input id="pid" placeholder="hat2"></label>
@@ -63,13 +63,16 @@ function d(pts) { let s = `M${pts[0][0]} ${pts[0][1]}`; for (let i = 1; i < pts.
 function draw() { const s = strokes[strokes.length - 1]; s.el.setAttribute('d', d(s.pts)); }
 function render() {
   const paths = strokes.filter(s => s.pts.length > 1).map(s => `<path d="${d(s.pts)}"/>`).join('');
-  const id = document.getElementById('pid').value.trim() || 'my1', name = document.getElementById('pname').value.trim() || 'моя штука';
-  out.value = paths ? `{ id: '${id}', name: '${name}', d: '${paths}' },` : '';
+  // id и название — строчными: в кабинете все кнопки с маленькой буквы, id — латиницей без пробелов
+  const id = (document.getElementById('pid').value.trim() || 'my1').toLowerCase().replace(/[^a-z0-9_]/g, '');
+  const name = (document.getElementById('pname').value.trim() || 'моя штука').toLowerCase();
+  const layer = document.getElementById('layer').value;
+  out.value = paths ? `{ id: '${id}', name: '${name}', d: '${paths}' }, // вставить в блок ${layer}:` : '';
 }
 pad.addEventListener('pointerdown', down); pad.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
 document.getElementById('undo').onclick = () => { const s = strokes.pop(); if (s) s.el.remove(); render(); };
 document.getElementById('clear').onclick = () => { strokes.length = 0; ink.innerHTML = ''; render(); };
-document.getElementById('pid').oninput = render; document.getElementById('pname').oninput = render;
+document.getElementById('pid').oninput = render; document.getElementById('pname').oninput = render; document.getElementById('layer').onchange = render;
 document.getElementById('copy').onclick = async () => {
   render(); if (!out.value) { document.getElementById('ok').textContent = 'Сначала нарисуй что-нибудь'; return; }
   try { await navigator.clipboard.writeText(out.value); document.getElementById('ok').textContent = 'Скопировано. Теперь в avatar.js'; }
