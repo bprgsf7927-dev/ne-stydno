@@ -22,7 +22,10 @@ for name in MODULES:
         if old: old["topics"] = sorted(set(old["topics"]) | {tid(t) for t in tlist}, key=lambda x: int(x[2:]))
         else: chapters.append({"id": ch_id, "title": title, "topics": [tid(t) for t in tlist], "book": book, "num": num})
         for t, par, ttitle in M.TOPICS:
-            if t in tlist: topics.append({"id": tid(t), "paragraph": par, "chapter": ch_id, "title": ttitle, "block": ""})
+            if t in tlist:
+                topics.append({"id": tid(t), "paragraph": par, "chapter": ch_id, "title": ttitle, "block": ""})
+                mix = getattr(M, "MIX", {}).get(t)   # параграф-повторение: берет материал других параграфов
+                if mix: topics[-1]["mix"] = [tid(x) for x in mix]
     for i, (t, term, book_def, simple, ex, keys, trap) in enumerate(M.CONCEPTS):
         terms.append({"id": base + i, "topic": tid(t), "term": term, "definition": simple, "book": book_def, "example": ex, "keys": keys, "trap": trap})
     for i, (t, lines, bad, fix) in enumerate(M.NIK_ERRORS):

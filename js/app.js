@@ -74,6 +74,8 @@ async function loadContent() {
   D.topicById = Object.fromEntries(D.topics.topics.map(t => [t.id, t]));
 }
 const byTopics = (arr, topics) => arr.filter(x => topics.includes(x.topic));
+// параграф-повторение (mix в topics.json) берет к себе материал других параграфов: §32 у русского
+const inTopic = (x, tid) => x.topic === tid || ((D.topicById[tid] || {}).mix || []).includes(x.topic);
 
 // ---------- экраны ----------
 // прокручивается только середина экрана (main), панели сверху и снизу стоят на месте
@@ -107,7 +109,7 @@ function show(id) {
 // Узлы параграфа: знакомство → тесты → сундук (после 2-го теста) → тесты → контрольная.
 // Число тестов зависит от объема параграфа: каждый факт должен встретиться ~3 раза, тест покрывает ~16 упоминаний.
 const REPEATS = 3, PER_TEST = 16, MIN_TESTS = 3, MAX_TESTS = 8;
-function topicFactCount(tid) { if (RUS) return D.terms.filter(t => t.topic === tid).length * 2 + D.nik.filter(x => x.topic === tid).length; return D.facts.filter(f => f.topic === tid).length + D.terms.filter(t => t.topic === tid).length + D.persons.filter(p => p.topic === tid).length; }
+function topicFactCount(tid) { if (RUS) return D.terms.filter(t => inTopic(t, tid)).length * 2 + D.nik.filter(x => inTopic(x, tid)).length; return D.facts.filter(f => inTopic(f, tid)).length + D.terms.filter(t => inTopic(t, tid)).length + D.persons.filter(p => inTopic(p, tid)).length; }
 function testsFor(tid) { return Math.max(MIN_TESTS, Math.min(MAX_TESTS, Math.round(topicFactCount(tid) * REPEATS / PER_TEST))); }
 function planFor(tid) {
   const n = testsFor(tid), plan = [];
@@ -175,9 +177,9 @@ function isLastInChapter(tid) { const ch = chapterOf(tid); return ch.topics[ch.t
 function layoutFor(tid) {
   const n = testsFor(tid);
   if (state.layouts[tid] && state.layouts[tid].facts.length === n) return state.layouts[tid];
-  const facts = D.facts.filter(f => f.topic === tid).map(f => f.id);
-  const terms = D.terms.filter(t => t.topic === tid).map(t => t.id);
-  const persons = D.persons.filter(p => p.topic === tid).map(p => p.id);
+  const facts = D.facts.filter(f => inTopic(f, tid)).map(f => f.id);
+  const terms = D.terms.filter(t => inTopic(t, tid)).map(t => t.id);
+  const persons = D.persons.filter(p => inTopic(p, tid)).map(p => p.id);
   const spread = (ids) => { // каждый id в ~3 теста из n (все тесты — если их 3)
     const steps = Array.from({ length: n }, () => []);
     shuffle(ids).forEach(id => pick([...Array(n).keys()], Math.min(n, REPEATS)).forEach(k => steps[k].push(id)));
@@ -395,7 +397,7 @@ function openCards(tid, idx, peek = false) {
     const lay = layoutFor(tid), k = stepNoOf(tid, idx), p = topicPool(tid);
     const sub = (all, ids) => { const s = all.filter(x => ids.includes(x.id)); return s.length ? s : all; };
     list = cardsOf(sub(p.facts, lay.facts[k]), sub(p.terms, lay.terms[k]), sub(p.persons, lay.persons[k]));
-  } else list = cardsOf(D.facts.filter(f => f.topic === tid), D.terms.filter(x => x.topic === tid), D.persons.filter(x => x.topic === tid));
+  } else list = cardsOf(D.facts.filter(f => inTopic(f, tid)), D.terms.filter(x => inTopic(x, tid)), D.persons.filter(x => inTopic(x, tid)));
   cards = { tid, idx, peek, i: 0, flipped: false, list, seen: new Set([0]) };
   $('cards-title').textContent = peek ? `${t.paragraph} · освежить память` : `${t.paragraph} · Знакомство`;
   $('cards-sub').textContent = peek ? 'Только то, что будет в этой тренировке.' : `${list.length} карточек: ${RUS ? 'понятия параграфа' : 'даты, термины, имена'}. Нажми, чтобы перевернуть. Долистай до конца — и откроется первая тренировка.`;
@@ -765,10 +767,10 @@ function buildTasksFrom(pool, mech) {
   return tasks.slice(0, LESSON_LEN);
 }
 function topicPool(tid) {
-  return { facts: D.facts.filter(f => f.topic === tid), allFacts: D.facts.filter(f => f.topic === tid),
-    terms: D.terms.filter(x => x.topic === tid), persons: D.persons.filter(x => x.topic === tid),
-    causes: D.causes.filter(x => x.topic === tid), cloze: D.cloze.filter(x => x.topic === tid), tf: D.truefalse.filter(x => x.topic === tid),
-    ...(RUS ? { allTerms: D.terms.filter(x => x.topic === tid), nik: D.nik.filter(x => x.topic === tid), why: D.why.filter(x => x.topic === tid), build: D.build.filter(x => x.topic === tid), rpairs: D.rpairs.filter(x => x.topic === tid) } : {}) };
+  return { facts: D.facts.filter(f => inTopic(f, tid)), allFacts: D.facts.filter(f => inTopic(f, tid)),
+    terms: D.terms.filter(x => inTopic(x, tid)), persons: D.persons.filter(x => inTopic(x, tid)),
+    causes: D.causes.filter(x => inTopic(x, tid)), cloze: D.cloze.filter(x => inTopic(x, tid)), tf: D.truefalse.filter(x => inTopic(x, tid)),
+    ...(RUS ? { allTerms: D.terms.filter(x => inTopic(x, tid)), nik: D.nik.filter(x => inTopic(x, tid)), why: D.why.filter(x => inTopic(x, tid)), build: D.build.filter(x => inTopic(x, tid)), rpairs: D.rpairs.filter(x => inTopic(x, tid)) } : {}) };
 }
 function buildStep(tid, idx) {
   const k = stepNoOf(tid, idx);
