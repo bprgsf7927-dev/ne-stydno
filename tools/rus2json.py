@@ -7,7 +7,7 @@ id параграфов в JSON с префиксом «ya» (язык): ya1, ya
 import os, sys, json, importlib
 sys.path.insert(0, os.path.dirname(__file__))
 
-MODULES = ["content_rus6_gl1", "content_rus6_gl2", "content_rus6_lex"]   # новые главы — сюда
+MODULES = ["content_rus6_gl1", "content_rus6_gl2", "content_rus6_rech", "content_rus6_lex"]   # новые главы — сюда
 OUT = os.path.join(os.path.dirname(__file__), "..", "content", "russkiy-6")
 os.makedirs(OUT, exist_ok=True)
 
