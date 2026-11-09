@@ -392,3 +392,22 @@ body.on-welcome main#app { padding-top: calc(env(safe-area-inset-top) + clamp(12
 .seg.wrap .seg-btn { font-size: 19px; padding: 0 10px; }
 .cab-color { width: 30px; height: 30px; border: 2.5px solid var(--card); outline: 2.5px solid #9aa0b0; border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; cursor: pointer; }
 .cab-color.active { outline: 3px solid var(--accent); transform: rotate(-6deg) scale(1.1); }
+
+/* ---------- русский: карточка понятия, «объясни Опти» ---------- */
+.subject { font: inherit; background: var(--card); width: 100%; text-align: left; cursor: pointer; }
+.subject:disabled { cursor: default; background: transparent; }
+.concept { text-align: left; font-size: 15px; line-height: 1.45; width: 100%; }
+.concept p { margin: 6px 0; }
+.concept .c-term { font: 700 30px/1.1 Caveat, cursive; color: var(--accent); margin-bottom: 4px; }
+.concept .c-simple { border: 2px dashed var(--accent); border-radius: 14px 4px 14px 4px; padding: 6px 10px; }
+.concept .c-trap b { color: var(--bad); }
+.flip .concept { font-size: 15px; }
+textarea.explain { width: 100%; box-sizing: border-box; font: 16px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--card); border: 2.5px solid var(--ink); border-radius: 18px 255px 18px 225px / 225px 18px 255px 18px; padding: 12px 14px; resize: vertical; }
+textarea.explain:focus { outline: none; border-color: var(--accent); }
+textarea.explain:disabled { color: var(--muted); }
+#explain-check { margin-top: 12px; display: grid; gap: 10px; }
+#explain-check.hidden { display: none; }
+.small-h { font-size: 22px; margin: 4px 0 0; }
+.keys { display: grid; gap: 6px; }
+.key { display: flex; gap: 10px; align-items: flex-start; border: 2px solid var(--ink); border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; padding: 8px 12px; background: var(--card); cursor: pointer; }
+.key input { width: 20px; height: 20px; accent-color: var(--ok); margin: 1px 0 0; flex: none; }

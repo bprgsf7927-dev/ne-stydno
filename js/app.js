@@ -3,14 +3,18 @@
    Без сборки и без аккаунтов: прогресс в localStorage (схема v2). */
 
 const SUBJECTS = [
-  { id: 'istoria', title: 'Истори-тренажер', course: 'srednie-veka-6', courseTitle: 'История, 6 класс', on: true },
+  { id: 'istoria', title: 'Истори-тренажер', course: 'srednie-veka-6', courseTitle: 'История, 6 класс', on: true, store: 'istoria-trainer-v3' },
+  { id: 'russkiy', title: 'Русич-тренажер', course: 'russkiy-6', courseTitle: 'Русский язык, 6 класс', on: true, store: 'russkiy-trainer-v1', extra: ['nik', 'why', 'build', 'rpairs'] },
   { id: 'geografia', title: 'Гео-тренажер', course: null, courseTitle: '6 класс', on: false },
   { id: 'biologia', title: 'Био-тренажер', course: null, courseTitle: '6 класс', on: false },
 ];
-const SUBJECT = SUBJECTS[0];
+// выбранный предмет живет в своем ключе; у каждого предмета свой прогресс
+const SUBJECT_KEY = 'ne-stydno-subject';
+const SUBJECT = (() => { let id = new URLSearchParams(location.search).get('s'); try { if (id) localStorage.setItem(SUBJECT_KEY, id); else id = localStorage.getItem(SUBJECT_KEY); } catch { /* без хранилища — история */ } return SUBJECTS.find(x => x.id === id && x.on) || SUBJECTS[0]; })();
+const RUS = SUBJECT.id === 'russkiy';
 const COURSE = SUBJECT.course;
 const LESSON_LEN = 8;
-const STORE_KEY = 'istoria-trainer-v3';
+const STORE_KEY = SUBJECT.store;
 const OLD_KEY2 = 'istoria-trainer-v2';
 const OLD_KEY = 'istoria-trainer-v1';
 const XP_PER_TASK = 10;
@@ -26,6 +30,7 @@ function loadState() {
   try {
     const s = JSON.parse(localStorage.getItem(STORE_KEY));
     if (s) return s;
+    if (RUS) return {};
     const s2 = JSON.parse(localStorage.getItem(OLD_KEY2));
     if (s2) return { v: 3, xp: s2.xp || 0, streak: s2.streak || 0, lastDay: s2.lastDay || null, wrong: s2.wrong || [], seen: s2.seen || {}, moreClicks: s2.moreClicks || 0 };
     const old = JSON.parse(localStorage.getItem(OLD_KEY));
@@ -62,7 +67,7 @@ function speak(role, text) {
 // ---------- данные ----------
 const D = {};
 async function loadContent() {
-  const names = ['topics', 'facts', 'terms', 'persons', 'causes', 'cloze', 'truefalse', 'lessons'];
+  const names = ['topics', 'facts', 'terms', 'persons', 'causes', 'cloze', 'truefalse', 'lessons', ...(SUBJECT.extra || [])];
   const res = await Promise.all(names.map(n => fetch(`content/${COURSE}/${n}.json?v=${window.APP_V || ''}`).then(r => { if (!r.ok) throw new Error(n); return r.json(); })));
   names.forEach((n, i) => D[n] = res[i]);
   D.factById = Object.fromEntries(D.facts.map(f => [f.id, f]));
@@ -102,7 +107,7 @@ function show(id) {
 // Узлы параграфа: знакомство → тесты → сундук (после 2-го теста) → тесты → контрольная.
 // Число тестов зависит от объема параграфа: каждый факт должен встретиться ~3 раза, тест покрывает ~16 упоминаний.
 const REPEATS = 3, PER_TEST = 16, MIN_TESTS = 3, MAX_TESTS = 8;
-function topicFactCount(tid) { return D.facts.filter(f => f.topic === tid).length + D.terms.filter(t => t.topic === tid).length + D.persons.filter(p => p.topic === tid).length; }
+function topicFactCount(tid) { if (RUS) return D.terms.filter(t => t.topic === tid).length * 2 + D.nik.filter(x => x.topic === tid).length; return D.facts.filter(f => f.topic === tid).length + D.terms.filter(t => t.topic === tid).length + D.persons.filter(p => p.topic === tid).length; }
 function testsFor(tid) { return Math.max(MIN_TESTS, Math.min(MAX_TESTS, Math.round(topicFactCount(tid) * REPEATS / PER_TEST))); }
 function planFor(tid) {
   const n = testsFor(tid), plan = [];
@@ -159,7 +164,7 @@ function prevTopic(tid) { const o = topicOrder(); const i = o.indexOf(tid); retu
 // сундук повторяет ближайший пройденный раньше параграф (если начал курс с середины — не спросит то, чего не учил)
 function chestTopic(tid) { let t = prevTopic(tid); while (t && !stepDone(t, 0)) t = prevTopic(t); return t; }
 function nextTopic(tid) { const o = topicOrder(); const i = o.indexOf(tid); return i < o.length - 1 ? o[i + 1] : null; }
-const BOOK_SHORT = { 'Всеобщая история': 'Средние века', 'История России': 'История России' };
+const BOOK_SHORT = { 'Всеобщая история': 'Средние века', 'История России': 'История России', 'Русский язык. Часть 1': 'Русский' };
 const chName = (ch) => `глава ${ch.num || ch.id}`;
 const ChName = (ch) => `Глава ${ch.num || ch.id}`;
 function chById(id) { return D.topics.chapters.find(c => c.id === id); }
@@ -208,7 +213,7 @@ function renderHome() {
   const dailyPool = dailyFacts();
   const ready = dailyPool.length >= 3;
   $('daily').classList.toggle('off', !ready);
-  $('daily-sub').textContent = ready ? '5 заданий из подзабытого' : 'появится после первой тренировки';
+  $('daily-sub').textContent = ready ? '5 заданий из подзабытого' : RUS ? 'для русского скоро' : 'появится после первой тренировки';
   $('daily-btn').disabled = !ready;
   $('topic-pill-para').textContent = `${BOOK_SHORT[ch.book] || ch.book} · ${ChName(ch)} · ${t.paragraph}`;
   $('topic-pill-title').textContent = t.title;
@@ -294,7 +299,10 @@ function renderTopicPicker() {
     frame.appendChild(bb);
   }
 }
-const PICKER_FOOT = [
+const PICKER_FOOT = RUS ? [
+  'Учебник читают. Теорию объясняют. Кто объяснил Опти — тот объяснит и учителю.',
+  'Ник ошибается нарочно. Найдешь его ошибку — значит, правило уже твое.',
+] : [
   'Две книги, десять боссов. Кто дойдет до Кремля — тот знает шестой класс лучше учителя. Ну, почти.',
   'Где-то в середине списка — 988 год. Владимир выбирал веру дольше, чем ты пройдешь параграф.',
   'Каждый параграф — это 6 шагов по три минуты. Вся книга — меньше, чем один сезон сериала.',
@@ -309,7 +317,8 @@ function togglePicker(open) {
 $('topic-pill').onclick = () => togglePicker($('picker').classList.contains('hidden'));
 function openSubjects() {
   $('hint-title').textContent = 'Предмет';
-  $('hint-text').innerHTML = `<div class="subjects">${SUBJECTS.map(s => `<div class="subject${s.on ? ' on' : ''}${s.id === SUBJECT.id ? ' active' : ''}"><b>${esc(s.title)}</b><span class="small muted">${s.on ? esc(s.courseTitle) : 'скоро'}</span></div>`).join('')}</div><p class="small muted">Пока только история. Другие предметы появятся, когда допилим этот.</p>`;
+  $('hint-text').innerHTML = `<div class="subjects">${SUBJECTS.map(s => `<button class="subject${s.on ? ' on' : ''}${s.id === SUBJECT.id ? ' active' : ''}" data-s="${s.id}" ${s.on ? '' : 'disabled'}><b>${esc(s.title)}</b><span class="small muted">${s.on ? esc(s.courseTitle) : 'скоро'}</span></button>`).join('')}</div><p class="small muted">У каждого предмета свой прогресс.</p>`;
+  $('hint-text').querySelectorAll('.subject.on').forEach(b => b.onclick = (e) => { e.stopPropagation(); if (b.dataset.s !== SUBJECT.id) location.replace(location.pathname + '?s=' + b.dataset.s); });
   $('hint').classList.remove('hidden');
 }
 $('subject-btn').onclick = openSubjects;
@@ -338,7 +347,11 @@ const BOSS_HOUSE = {
   R4: '<svg class="house" viewBox="0 0 120 100" fill="none" stroke="#1e2235" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 88V66l4-5 3 5 4-5 3 5 4-5 3 5h8M80 66h8l3-5 4 5 3-5 4 5 3-5 4 5v22z"/><path d="M8 88h104"/><path d="M40 88V44l40 1-1 43z"/><path d="M38 46q11-1 22-28q11 27 22 28"/><path d="M60 18V4M56 8l4-5 4 5"/><path d="M52 88V72q8-8 16 0v16"/><path d="M50 56h20"/></svg>',
   VI: '<svg class="house" viewBox="0 0 120 100" fill="none" stroke="#1e2235" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 88V38l10 2-1-11 12-1v10l12 1-1-14 11-2 1 15 12 1-1-10 12-1 1 12 11-2-1 50z"/><path d="M48 88V62q12-12 25 1v25"/><path d="M28 54l9 1-1 9-8-1zM84 52l9 1-1 10-9-1z"/><path d="M61 25l-1-20 16 5-15 5"/><path d="M22 76q8-2 14 1M86 74q8-3 14 1"/></svg>',
 };
-const BOSS_LEVELS = [
+const BOSS_LEVELS = RUS ? [
+  { id: 1, title: 'Разминка', sub: 'пары и правда-ложь · 10', n: 10 },
+  { id: 2, title: 'Как учитель спросит', sub: 'ошибка Ника, почему так, собери · 10', n: 10 },
+  { id: 3, title: 'Босс', sub: 'объясни своими словами · 8 · жизни', n: 8 },
+] : [
   { id: 1, title: 'Разминка', sub: 'пары и правда-ложь · 10', n: 10 },
   { id: 2, title: 'Как учитель спросит', sub: 'порядок, вставка, причины · 10', n: 10 },
   { id: 3, title: 'Босс', sub: 'даты с клавиатуры · 8 · жизни', n: 8 },
@@ -374,7 +387,7 @@ function openCards(tid, idx, peek = false) {
   const t = D.topicById[tid];
   const cardsOf = (facts, terms, persons) => [
     ...facts.map(f => ({ front: f.date, back: f.event, kind: 'дата' })),
-    ...terms.map(x => ({ front: x.term, back: x.definition, kind: 'термин' })),
+    ...terms.map(x => x.book ? { front: x.term, back: x.definition, kind: 'понятие', html: conceptHTML(x) } : { front: x.term, back: x.definition, kind: 'термин' }),
     ...persons.map(x => ({ front: x.name, back: x.who, kind: 'кто это' })),
   ];
   let list;
@@ -385,7 +398,7 @@ function openCards(tid, idx, peek = false) {
   } else list = cardsOf(D.facts.filter(f => f.topic === tid), D.terms.filter(x => x.topic === tid), D.persons.filter(x => x.topic === tid));
   cards = { tid, idx, peek, i: 0, flipped: false, list, seen: new Set([0]) };
   $('cards-title').textContent = peek ? `${t.paragraph} · освежить память` : `${t.paragraph} · Знакомство`;
-  $('cards-sub').textContent = peek ? 'Только то, что будет в этой тренировке.' : `${list.length} карточек: даты, термины, имена. Нажми, чтобы перевернуть. Долистай до конца — и откроется первая тренировка.`;
+  $('cards-sub').textContent = peek ? 'Только то, что будет в этой тренировке.' : `${list.length} карточек: ${RUS ? 'понятия параграфа' : 'даты, термины, имена'}. Нажми, чтобы перевернуть. Долистай до конца — и откроется первая тренировка.`;
   $('cards-start').textContent = peek ? 'Поехали' : 'Я все посмотрел';
   $('cards-start').disabled = !peek;
   renderCard();
@@ -393,7 +406,7 @@ function openCards(tid, idx, peek = false) {
 }
 function renderCard() {
   const f = cards.list[cards.i];
-  $('flip-front').innerHTML = cards.flipped ? `<div class="small muted">${esc(f.front)}</div><div>${esc(f.back)}</div>` : `<div class="date">${esc(f.front)}</div><div class="small muted">${f.kind} · нажми</div>`;
+  $('flip-front').innerHTML = cards.flipped ? (f.html || `<div class="small muted">${esc(f.front)}</div><div>${esc(f.back)}</div>`) : `<div class="date">${esc(f.front)}</div><div class="small muted">${f.kind} · нажми</div>`;
   $('flip').classList.toggle('back', cards.flipped);
   const f2 = cards.list[cards.i]; const grp = cards.list.filter(x => x.kind === f2.kind); const gi = grp.indexOf(f2) + 1;
   $('cards-count').innerHTML = `<b>${esc(f2.kind)}</b> ${gi}/${grp.length} <span class="muted">· всего ${cards.i + 1}/${cards.list.length}</span>`;
@@ -593,6 +606,106 @@ function tType(fact) {
   };
 }
 
+// ---------- русский: механики на понимание ----------
+const noDot = (x) => String(x).replace(/[.!]$/, '');
+const lc = (x) => x[0].toLowerCase() + x.slice(1);
+function conceptHTML(x) {
+  return `<div class="concept"><div class="c-term">${esc(x.term)}</div>
+    <p><b>По учебнику.</b> ${esc(x.book)}</p>
+    <p class="c-simple"><b>Простыми словами.</b> ${esc(x.definition)}</p>
+    <p><b>Пример.</b> ${esc(x.example)}</p>
+    <p class="c-trap"><b>Ловушка.</b> ${esc(x.trap)}</p></div>`;
+}
+function tNik(x) { // Ник объясняет, одна фраза неверная
+  const bad = x.lines[x.bad];
+  const t = choice('Ник объясняет. Где он ошибся?', x.lines, bad, null, `ошибка в «${noDot(bad)}». ${noDot(x.fix)}`);
+  t.kind = 'nik'; return t;
+}
+function tWhy(x) { const t = choice(x.q, shuffle([x.ok, ...x.wrong]), x.ok, null, x.ok); t.kind = 'why'; return t; }
+function tBuild(x) { // собери определение из блоков, один блок лишний
+  return {
+    kind: 'build', answerText: `${x.term} — ${x.blocks.join(' ')}`,
+    render(el, hint = 0) {
+      const preN = hint >= 2 ? Math.max(0, x.blocks.length - 2) : 0;
+      const chosen = x.blocks.slice(0, preN).map((_, i) => i);
+      const opts = shuffle([...x.blocks.map((b, i) => ({ i, b })).slice(preN), ...(hint >= 1 ? [] : [{ i: -1, b: x.extra }])]);
+      el.innerHTML = `${hintTag(hint)}<h2>Собери определение: ${esc(x.term)}</h2><p class="small muted">Один блок лишний.</p>
+        <div class="slots">${x.blocks.map((b, i) => i < preN ? `<div class="slot filled">${esc(b)}</div>` : `<div class="slot">${i + 1}</div>`).join('')}</div>
+        <div class="options">${opts.map(o => `<button class="opt" data-i="${o.i}">${esc(o.b)}</button>`).join('')}</div>`;
+      el.querySelectorAll('.options .opt').forEach(b => b.onclick = () => {
+        if (b.disabled) return;
+        b.disabled = true; chosen.push(+b.dataset.i);
+        const slot = el.querySelectorAll('.slot')[chosen.length - 1];
+        slot.textContent = b.textContent; slot.classList.add('filled');
+        if (chosen.length === x.blocks.length) {
+          el.querySelectorAll('.options .opt').forEach(o => o.disabled = true);
+          el.querySelectorAll('.slot').forEach((s, i) => s.classList.add(chosen[i] === i ? 'correct' : 'wrong'));
+          finishTask(chosen.every((v, i) => v === i));
+        }
+      });
+    },
+  };
+}
+function tRPairs(items) { // пары внутри одной группы: «Виды норм», «Архаизм — как сейчас»
+  const groups = {}; items.forEach(p => (groups[p.group] = groups[p.group] || []).push(p));
+  const ok = Object.values(groups).filter(g => g.length >= 3);
+  if (!ok.length) return null;
+  const g = pick(ok, 1)[0];
+  return pairsTask(pick(g, Math.min(4, g.length)).map(p => ({ id: p.id, l: p.l, r: p.r })), `Соедини: ${g[0].group.toLowerCase()}`);
+}
+function tExplain(term) { // Объясни Опти: пишешь своими словами, потом сам отмечаешь, что упомянул
+  return {
+    kind: 'explain', answerText: `${term.term} — ${lc(noDot(term.definition))}`,
+    render(el, hint = 0) {
+      el.innerHTML = `${hintTag(hint)}<p class="lead-tag">объясни Опти</p><h2>Что такое «${esc(term.term)}»? Объясни своими словами.</h2>
+        ${hint >= 1 ? `<p class="small muted">Подсказка: ${esc(term.keys.join('; '))}.</p>` : ''}
+        <textarea class="explain" id="explain-input" rows="4" placeholder="Как будто объясняешь другу"></textarea>
+        <div id="explain-check" class="hidden">${conceptHTML(term)}
+          <h2 class="small-h">Отметь, что ты упомянул:</h2>
+          <div class="keys">${term.keys.map((k, i) => `<label class="key"><input type="checkbox" data-i="${i}"> ${esc(k)}</label>`).join('')}</div>
+          <button class="btn primary" id="explain-done">Готово</button></div>`;
+      const inp = el.querySelector('#explain-input');
+      const btn = $('check-btn');
+      btn.textContent = 'Сравнить с учебником'; btn.classList.remove('hidden');
+      btn.onclick = () => {
+        if (inp.value.trim().length < 5) { inp.focus(); return; }
+        btn.classList.add('hidden'); btn.textContent = 'Проверить'; inp.disabled = true;
+        el.querySelector('#explain-check').classList.remove('hidden');
+        el.querySelector('#explain-done').onclick = (e) => {
+          e.target.disabled = true;
+          const boxes = [...el.querySelectorAll('.key input')], got = boxes.filter(b => b.checked).length;
+          boxes.forEach(b => b.disabled = true);
+          finishTask(got === boxes.length, got > 0 && got >= boxes.length / 2);
+        };
+      };
+    },
+  };
+}
+const RUS_MECH = [ // первая тренировка проще: без сборки и без «объясни»
+  ['choice', 'why', 'tf', 'pairsx', 'nik', 'choice', 'rpairs', 'tf'],
+  ['nik', 'pairsx', 'why', 'build', 'tf', 'explain', 'choice', 'rpairs'],
+  ['build', 'nik', 'explain', 'why', 'rpairs', 'tf', 'choice', 'pairsx'],
+  ['explain', 'why', 'nik', 'build', 'pairsx', 'tf', 'rpairs', 'choice'],
+];
+function buildRusTasks(pool, mech) {
+  const used = { nik: new Set(), why: new Set(), build: new Set(), tf: new Set(), explain: new Set() };
+  const take = (k, arr) => { const free = arr.filter(x => !used[k].has(x.id)); if (!free.length) return null; const x = pick(free, 1)[0]; used[k].add(x.id); return x; };
+  const tasks = [];
+  const fallback = () => { const t = pick(pool.terms.length ? pool.terms : D.terms, 1)[0]; return Math.random() < 0.5 ? tChoiceTerm(t, D.terms) : tTermByDef(t, D.terms); };
+  for (const m of mech) {
+    let t = null, x;
+    if (m === 'nik' && (x = take('nik', pool.nik))) t = tNik(x);
+    else if (m === 'why' && (x = take('why', pool.why))) t = tWhy(x);
+    else if (m === 'build' && (x = take('build', pool.build))) t = tBuild(x);
+    else if (m === 'tf' && (x = take('tf', pool.tf))) t = tTrueFalse({ ...x, note: noDot(x.note) });
+    else if (m === 'explain' && (x = take('explain', pool.terms))) t = tExplain(x);
+    else if (m === 'rpairs') t = tRPairs(pool.rpairs);
+    else if (m === 'pairsx' && pool.terms.length >= 3) t = tPairsTerms(pool.terms);
+    tasks.push(t || fallback());
+  }
+  return tasks.slice(0, LESSON_LEN);
+}
+
 const hintTag = (h) => h === 1 ? '<p class="hint-tag">еще раз, ты справишься</p>' : h >= 2 ? '<p class="hint-tag strong">с подсказкой</p>' : '';
 
 // ---------- подводки: первая встреча с фактом, ответ почти очевиден из контекста ----------
@@ -623,6 +736,7 @@ function unmet(pool) { const m = state.met || {}; return [...pool.facts, ...pool
 
 // ---------- сборка шага / сундука / контрольной / босса ----------
 function buildTasksFrom(pool, mech) {
+  if (RUS) return buildRusTasks(pool, mech);
   // pool: {facts, terms, persons, causes, cloze, tf} — массивы объектов; mech — список механик
   const yf = yearFacts(pool.facts);
   const wrongFirst = [...pool.facts.filter(f => state.wrong.includes(f.id)), ...shuffle(pool.facts.filter(f => !state.wrong.includes(f.id)))];
@@ -653,7 +767,8 @@ function buildTasksFrom(pool, mech) {
 function topicPool(tid) {
   return { facts: D.facts.filter(f => f.topic === tid), allFacts: D.facts.filter(f => f.topic === tid),
     terms: D.terms.filter(x => x.topic === tid), persons: D.persons.filter(x => x.topic === tid),
-    causes: D.causes.filter(x => x.topic === tid), cloze: D.cloze.filter(x => x.topic === tid), tf: D.truefalse.filter(x => x.topic === tid) };
+    causes: D.causes.filter(x => x.topic === tid), cloze: D.cloze.filter(x => x.topic === tid), tf: D.truefalse.filter(x => x.topic === tid),
+    ...(RUS ? { allTerms: D.terms.filter(x => x.topic === tid), nik: D.nik.filter(x => x.topic === tid), why: D.why.filter(x => x.topic === tid), build: D.build.filter(x => x.topic === tid), rpairs: D.rpairs.filter(x => x.topic === tid) } : {}) };
 }
 function buildStep(tid, idx) {
   const k = stepNoOf(tid, idx);
@@ -668,7 +783,8 @@ function buildStep(tid, idx) {
   const chosen = fresh.slice(0, cap), nLead = chosen.length;
   const leads = chosen.map(x => x.date !== undefined ? tLeadFact(x) : x.term !== undefined ? tLeadTerm(x) : tLeadPerson(x));
   markMet(chosen);
-  const rest = buildTasksFrom(pool, STEP_MECH[k % STEP_MECH.length]).slice(0, LESSON_LEN - nLead);
+  const mechs = RUS ? RUS_MECH : STEP_MECH;
+  const rest = buildTasksFrom(pool, mechs[k % mechs.length]).slice(0, LESSON_LEN - nLead);
   // чередуем: подводка, задание, подводка, задание… чтобы спросили через одно
   const out = []; let li = 0, ri = 0;
   // подводки на четных местах, обычные на нечетных; если подводок больше половины — лишние в конец
@@ -682,13 +798,31 @@ function buildStep(tid, idx) {
 function buildChest(tid) {
   const pt = chestTopic(tid);
   const p = topicPool(pt);
-  return buildTasksFrom(p, ['pairs', 'tf', 'choice', 'order', 'pairsx', 'choice', 'cloze', 'type']);
+  return buildTasksFrom(p, RUS ? ['pairsx', 'tf', 'nik', 'why', 'choice', 'rpairs', 'build', 'tf'] : ['pairs', 'tf', 'choice', 'order', 'pairsx', 'choice', 'cloze', 'type']);
 }
 function buildTopicExam(tid) {
   const p = topicPool(tid);
-  return buildTasksFrom(p, ['order', 'cloze', 'choice', 'pairsx', 'type', 'choice', 'tf', 'cloze']);
+  return buildTasksFrom(p, RUS ? ['explain', 'nik', 'why', 'build', 'choice', 'rpairs', 'tf', 'explain'] : ['order', 'cloze', 'choice', 'pairsx', 'type', 'choice', 'tf', 'cloze']);
+}
+function buildBossRus(ch, level) {
+  const ts = ch.topics, terms = byTopics(D.terms, ts), by = (k) => byTopics(D[k], ts);
+  const tasks = [];
+  if (level === 1) {
+    const tfs = pick(by('truefalse'), 5);
+    for (let i = 0; i < 10; i++) tasks.push(i % 2 ? tTrueFalse({ ...tfs[(i - 1) / 2 % tfs.length], note: noDot(tfs[(i - 1) / 2 % tfs.length].note) }) : (i % 4 === 0 && tRPairs(by('rpairs'))) || tPairsTerms(terms));
+  } else if (level === 2) {
+    const nik = pick(by('nik'), 4), why = pick(by('why'), 3), bl = pick(by('build'), 3);
+    [nik[0], why[0], bl[0], nik[1], why[1], bl[1], nik[2], why[2], bl[2], nik[3]].forEach((x, i) => {
+      if (!x) return tasks.push(tTermByDef(pick(terms, 1)[0], D.terms));
+      tasks.push(x.lines ? tNik(x) : x.blocks ? tBuild(x) : tWhy(x));
+    });
+  } else {
+    pick(terms, 8).forEach((t, i) => tasks.push(i % 2 ? tTermByDef(t, D.terms) : tExplain(t)));
+  }
+  return tasks;
 }
 function buildBoss(ch, level) {
+  if (RUS) return buildBossRus(ch, level);
   const topics = ch.topics;
   const facts = byTopics(D.facts, topics), yf = yearFacts(facts);
   const tf = byTopics(D.truefalse, topics), cloze = byTopics(D.cloze, topics), terms = byTopics(D.terms, topics), persons = byTopics(D.persons, topics), causes = byTopics(D.causes, topics);
@@ -747,13 +881,15 @@ function startChest(tid) {
 function startTopicExam(tid) { startRun('exam', buildTopicExam(tid), { tid, idx: planFor(tid).indexOf('exam'), intro: `Контрольная по ${D.topicById[tid].paragraph}. Как учитель спросит.` }); }
 function startBoss(chId, level) {
   const ch = D.topics.chapters.find(c => c.id === chId);
-  const intro = level === 3 ? `Босс. Даты с клавиатуры, жизней: ${Math.max(1, state.hearts)}.` : `${ChName(ch)}, уровень ${level}: ${BOSS_LEVELS[level - 1].title}.`;
+  const intro = level === 3 ? `Босс. ${RUS ? 'Объясняешь своими словами' : 'Даты с клавиатуры'}, жизней: ${Math.max(1, state.hearts)}.` : `${ChName(ch)}, уровень ${level}: ${BOSS_LEVELS[level - 1].title}.`;
   startRun('boss', buildBoss(ch, level), { chapter: ch, level, intro });
 }
 // ---------- качалка: вся глава за одну тренировку ----------
 // Каждый пункт главы (дата, термин, личность) встречается дважды, во второй раз — в другой механике.
 // Задания собираются заново при каждом запуске, ошибки возвращаются в конце с подсказкой.
-const GYM_MODES = {
+const GYM_MODES = RUS ? {
+  terms:   { title: 'Понятия', items: (ts) => byTopics(D.terms, ts), word: ['понятие', 'понятия', 'понятий'] },
+} : {
   dates:   { title: 'Даты', items: (ts) => byTopics(D.facts, ts), word: ['дата', 'даты', 'дат'] },
   terms:   { title: 'Термины', items: (ts) => byTopics(D.terms, ts), word: ['термин', 'термина', 'терминов'] },
   persons: { title: 'Личности', items: (ts) => byTopics(D.persons, ts), word: ['личность', 'личности', 'личностей'] },
@@ -828,7 +964,7 @@ function renderGym() {
   $('gym-seg').innerHTML = Object.entries(GYM_MODES).map(([k, m]) => `<button class="seg-btn${k === gymMode ? ' active' : ''}" data-mode="${k}">${m.title}</button>`).join('');
   $('gym-seg').querySelectorAll('.seg-btn').forEach(b => b.onclick = () => { gymMode = b.dataset.mode; renderGym(); });
   $('gym-pic').innerHTML = charSVG('dushka', 'idle', null, 46);
-  $('gym-say').innerHTML = `<b>Душка:</b> Вся глава за один подход. Всего 7–10 минут — и ты готов к проверочной по ${{ dates: 'датам', terms: 'терминам', persons: 'личностям' }[gymMode]}. Не уверен — повторяй, пока не надоест.`;
+  $('gym-say').innerHTML = `<b>Душка:</b> Вся глава за один подход. Всего 7–10 минут — и ты готов к проверочной по ${RUS ? 'теории' : { dates: 'датам', terms: 'терминам', persons: 'личностям' }[gymMode]}. Не уверен — повторяй, пока не надоест.`;
   const box = $('gym-list'); box.innerHTML = ''; let book = null;
   for (const ch of D.topics.chapters) {
     const n = GYM_MODES[gymMode].items(ch.topics).length; if (!n) continue;
@@ -852,6 +988,7 @@ function renderTask() {
   $('progress-count').textContent = run.round > 0 ? `ошибки: ${run.i + 1} из ${run.tasks.length}` : `${run.i + 1} из ${run.tasks.length}`;
   renderHearts();
   ['feedback', 'assoc', 'more-btn', 'more-text', 'check-btn'].forEach(id => $(id).classList.add('hidden'));
+  $('check-btn').textContent = 'Проверить';
   $('feedback').classList.remove('ok', 'bad', 'half');
   const el = $('task'); el.innerHTML = '';
   t.render(el, run.round > 0 ? run.hint : 0);
@@ -874,15 +1011,15 @@ function finishTask(ok, half = false) {
   if (ok) {
     run.score++; run.xp += XP_PER_TASK;
     speak(run.round > 0 ? 'nerd' : 'optimist');
-    $('feedback-text').innerHTML = t.quiet ? '<b>Ты прав.</b> Все пары на месте.' : `<b>Ты прав.</b> ${esc(t.answerText)}.${esc(hook)}`;
+    $('feedback-text').innerHTML = t.kind === 'explain' ? '<b>Ты прав.</b> Все главное назвал своими словами.' : t.quiet ? '<b>Ты прав.</b> Все пары на месте.' : `<b>Ты прав.</b> ${esc(t.answerText)}.${esc(hook)}`;
     if (t.fact) state.wrong = state.wrong.filter(id => id !== t.fact.id);
   } else {
     if (half) {
       run.score += 0.5; run.xp += XP_PER_TASK / 2; speak('nerd', 'Одна промашка — засчитываю половину.');
-      $('feedback-text').innerHTML = t.quiet ? '<b>Почти.</b> Собрал, но с одной ошибкой.' : `<b>Почти.</b> Правильно: ${esc(t.answerText)}.`;
+      $('feedback-text').innerHTML = t.kind === 'explain' ? '<b>Почти.</b> Часть главного пропустил. Вернемся к этому понятию в конце.' : t.quiet ? '<b>Почти.</b> Собрал, но с одной ошибкой.' : `<b>Почти.</b> Правильно: ${esc(t.answerText)}.`;
     } else {
       speak(run.round > 0 ? 'nerd' : 'panic', run.round > 0 ? 'Ничего, вернемся к этому.' : '');
-      $('feedback-text').innerHTML = `<b>Ты не прав.</b> Правильно: ${esc(t.answerText)}.`;
+      $('feedback-text').innerHTML = t.kind === 'explain' ? `<b>Ты не прав.</b> Главного пока нет. Простыми словами: ${esc(t.answerText)}.` : `<b>Ты не прав.</b> Правильно: ${esc(t.answerText)}.`;
     }
     if (t.fact) {
       if (t.fact.assoc) { $('assoc').textContent = `💡 ${t.fact.assoc}`; $('assoc').classList.remove('hidden'); }
@@ -1099,5 +1236,7 @@ function measureBars() {
 }
 if (window.ResizeObserver) { const ro = new ResizeObserver(measureBars); ro.observe(document.querySelector('.top')); ro.observe($('tabs')); }
 window.addEventListener('resize', measureBars);
+$('brand').textContent = SUBJECT.title;
+document.querySelector('.welcome-note').textContent = `${SUBJECT.courseTitle}. Без регистрации, прогресс хранится на этом телефоне.`;
 loadContent().then(() => { checkUpdate(); renderStats(); renderWelcome(); renderTabs('map'); if (hasProgress()) { renderHome(); show('screen-home'); } else show('screen-welcome'); })
   .catch(e => { $('map').innerHTML = `<p class="muted">Не удалось загрузить контент (${esc(e.message)}). Открой сайт через сервер, а не как файл.</p>`; });
