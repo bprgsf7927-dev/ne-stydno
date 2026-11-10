@@ -1444,8 +1444,17 @@ function renderWelcome() {
   $('welcome-chars').innerHTML = ['opti', 'nik', 'dushka'].map(id => charSVG(id, 'idle', null, 80)).join('');
   $('welcome-bubbles').innerHTML = ['opti', 'nik', 'dushka'].map(id => `<div class="bubble b-${id}"><b>${CHARS[id].name}</b> ${esc(charLine(id, 'idle'))}</div>`).join('');
 }
-$('welcome-start').onclick = () => { state.started = true; save(); renderHome(); show('screen-home'); };
-const hasProgress = () => state.started || Object.keys(state.steps || {}).length > 0;
+// Приветствие — один раз на весь тренажер (и по нажатию на название предмета), а не при каждом переключении предмета
+const STARTED_KEY = 'ne-stydno-started';
+function markStarted() { try { localStorage.setItem(STARTED_KEY, '1'); } catch { /* нет хранилища */ } }
+function startedAnywhere() {
+  try {
+    if (localStorage.getItem(STARTED_KEY) === '1') return true;
+    return SUBJECTS.some(x => { if (!x.store) return false; const st = JSON.parse(localStorage.getItem(x.store) || 'null'); return st && (st.started || Object.keys(st.steps || {}).length > 0); });
+  } catch { return false; }
+}
+$('welcome-start').onclick = () => { state.started = true; save(); markStarted(); renderHome(); show('screen-home'); };
+const hasProgress = () => state.started || Object.keys(state.steps || {}).length > 0 || startedAnywhere();
 
 // высоты закрепленных панелей — в CSS-переменные, чтобы стартовая помещалась ровно в экран
 function measureBars() {
