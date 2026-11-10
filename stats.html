@@ -50,7 +50,7 @@ async function load() {
     el.innerHTML =
       card(s.devices, plural(s.devices, 'ученик открыл тренажер', 'ученика открыли тренажер', 'учеников открыли тренажер'), 'st-big') +
       card(s.trainings, plural(s.trainings, 'тренировка пройдена', 'тренировки пройдены', 'тренировок пройдено')) +
-      card(s.accounts, plural(s.accounts, 'завел аккаунт', 'завели аккаунт', 'завели аккаунт') + ' в Telegram') +
+      card(s.accounts, plural(s.accounts, 'завел аккаунт', 'завели аккаунт', 'завели аккаунт')) +
       `<div class="st-card st-big"><span>Сегодня занимались: <b style="display:inline;font-size:30px">${fmt(s.today)}</b></span>
          <div class="st-bars">${days.map((v, i) => `<i class="${i === 29 ? 'now' : ''}" style="height:${Math.round(v / max * 100)}%" title="${v}"></i>`).join('')}</div>
          <span class="small">последние 30 дней</span></div>` +
