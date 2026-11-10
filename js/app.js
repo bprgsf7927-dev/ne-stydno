@@ -5,13 +5,15 @@
 const SUBJECTS = [
   { id: 'istoria', title: 'Истори-тренажер', course: 'srednie-veka-6', courseTitle: 'История, 6 класс', on: true, store: 'istoria-trainer-v3' },
   { id: 'russkiy', title: 'Русича-тренажер', course: 'russkiy-6', courseTitle: 'Русский язык, 6 класс', on: true, store: 'russkiy-trainer-v1', extra: ['nik', 'why', 'build', 'rpairs'] },
-  { id: 'geografia', title: 'Гео-тренажер', course: null, courseTitle: '6 класс', on: false },
+  { id: 'geografia', title: 'Гео-тренажер', course: 'geografia-6', courseTitle: 'География, 6 класс', on: true, store: 'geografia-trainer-v1' },
   { id: 'biologia', title: 'Био-тренажер', course: null, courseTitle: '6 класс', on: false },
 ];
 // выбранный предмет живет в своем ключе; у каждого предмета свой прогресс
 const SUBJECT_KEY = 'ne-stydno-subject';
 const SUBJECT = (() => { let id = new URLSearchParams(location.search).get('s'); try { if (id) localStorage.setItem(SUBJECT_KEY, id); else id = localStorage.getItem(SUBJECT_KEY); } catch { /* без хранилища — история */ } return SUBJECTS.find(x => x.id === id && x.on) || SUBJECTS[0]; })();
 const RUS = SUBJECT.id === 'russkiy';
+// география идет на движке истории: «даты» у нее — числа (длины рек, высоты), «личности» — объекты (реки, водопады)
+const GEO = SUBJECT.id === 'geografia';
 const COURSE = SUBJECT.course;
 const LESSON_LEN = 8;
 const STORE_KEY = SUBJECT.store;
@@ -177,9 +179,9 @@ function prevTopic(tid) { const o = topicOrder(); const i = o.indexOf(tid); retu
 // сундук повторяет ближайший пройденный раньше параграф (если начал курс с середины — не спросит то, чего не учил)
 function chestTopic(tid) { let t = prevTopic(tid); while (t && !stepDone(t, 0)) t = prevTopic(t); return t; }
 function nextTopic(tid) { const o = topicOrder(); const i = o.indexOf(tid); return i < o.length - 1 ? o[i + 1] : null; }
-const BOOK_SHORT = { 'Всеобщая история': 'Средние века', 'История России': 'История России', 'Русский язык. Часть 1': 'Русский' };
-const chName = (ch) => `глава ${ch.num || ch.id}`;
-const ChName = (ch) => `Глава ${ch.num || ch.id}`;
+const BOOK_SHORT = { 'География': 'География', 'Всеобщая история': 'Средние века', 'История России': 'История России', 'Русский язык. Часть 1': 'Русский' };
+const chName = (ch) => ch.label ? ch.label.toLowerCase() : `глава ${ch.num || ch.id}`;
+const ChName = (ch) => ch.label || `Глава ${ch.num || ch.id}`;
 function chById(id) { return D.topics.chapters.find(c => c.id === id); }
 function chapterOf(tid) { return D.topics.chapters.find(c => c.topics.includes(tid)); }
 function isLastInChapter(tid) { const ch = chapterOf(tid); return ch.topics[ch.topics.length - 1] === tid; }
@@ -315,6 +317,9 @@ function renderTopicPicker() {
 const PICKER_FOOT = RUS ? [
   'Учебник читают. Теорию объясняют. Кто объяснил Опти — тот объяснит и учителю.',
   'Ник ошибается нарочно. Найдешь его ошибку — значит, правило уже твое.',
+] : GEO ? [
+  'Нил длиннее Амазонки, а Амазонка мощнее Нила. Спорят до сих пор — а ты просто выучи оба.',
+  'Каждый параграф — шесть шагов по три минуты. Быстрее, чем вода в Ниле дотечет до моря. Сильно быстрее.',
 ] : [
   'Две книги, десять боссов. Кто дойдет до Кремля — тот знает шестой класс лучше учителя. Ну, почти.',
   'Где-то в середине списка — 988 год. Владимир выбирал веру дольше, чем ты пройдешь параграф.',
@@ -339,6 +344,8 @@ $('picker-close').onclick = () => togglePicker(false);
 
 // ---------- экран босса главы: три уровня ----------
 const BOSS_HOUSE = {
+  // маяк у воды — гидросфера
+  gid: '<svg class="house" viewBox="0 0 120 100" fill="none" stroke="#1e2235" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M48 84l4-56h16l4 56z"/><path d="M50 28h20l-3-10H53z"/><path d="M60 18V10"/><path d="M53 18l7-6 7 6"/><path d="M51 48h18M50 64h20"/><path d="M42 22l-12-4M78 22l12-4M42 26l-14 4M78 26l14 4"/><path d="M6 90q9-6 18 0t18 0t18 0t18 0t18 0t18 0"/></svg>',
   // юрта, криво: дрожащий купол, войлочные полосы, дымок
   V:  '<svg class="house" viewBox="0 0 120 100" fill="none" stroke="#1e2235" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 80q6-30 24-44q12-10 26-11q16 1 26 12q14 14 22 42l-4 3q-46 4-92 1z"/><path d="M22 60q38-10 78 2M16 72q44-8 90 1"/><path d="M48 82v-20q12-9 24 1v20"/><path d="M60 24q-2-6 1-10q4 3 1 10M62 14q-6-8 2-12q6 6 2 11"/><path d="M68 10q6-6 2-12M72 4q8-4 4-10"/><path d="M30 46q3-2 6 1M84 44q3-2 6 2"/></svg>',
   // замок, криво: зубцы разной высоты, флаг, окошки
@@ -367,7 +374,7 @@ const BOSS_LEVELS = RUS ? [
 ] : [
   { id: 1, title: 'Разминка', sub: 'пары и правда-ложь · 10', n: 10 },
   { id: 2, title: 'Как учитель спросит', sub: 'порядок, вставка, причины · 10', n: 10 },
-  { id: 3, title: 'Босс', sub: 'даты с клавиатуры · 8 · жизни', n: 8 },
+  { id: 3, title: 'Босс', sub: GEO ? 'числа с клавиатуры · 8 · жизни' : 'даты с клавиатуры · 8 · жизни', n: 8 },
 ];
 function bossState(chId) { return state.bosses[chId] || {}; }
 function renderBoss(chId) {
@@ -399,9 +406,9 @@ let cards = null;
 function openCards(tid, idx, peek = false) {
   const t = D.topicById[tid];
   const cardsOf = (facts, terms, persons) => [
-    ...facts.map(f => ({ front: f.date, back: f.event, kind: 'дата' })),
+    ...facts.map(f => ({ front: f.date, back: f.event, kind: GEO ? 'число' : 'дата' })),
     ...terms.map(x => x.book ? { front: x.term, back: x.definition, kind: 'понятие', html: conceptHTML(x) } : { front: x.term, back: x.definition, kind: 'термин' }),
-    ...persons.map(x => ({ front: x.name, back: x.who, kind: 'кто это' })),
+    ...persons.map(x => ({ front: x.name, back: x.who, kind: GEO ? 'что это' : 'кто это' })),
   ];
   let list;
   if (peek) { // перед тестом: только материал этого теста
@@ -411,7 +418,7 @@ function openCards(tid, idx, peek = false) {
   } else list = cardsOf(D.facts.filter(f => inTopic(f, tid)), D.terms.filter(x => inTopic(x, tid)), D.persons.filter(x => inTopic(x, tid)));
   cards = { tid, idx, peek, i: 0, flipped: false, list, seen: new Set([0]) };
   $('cards-title').textContent = peek ? `${t.paragraph} · освежить память` : `${t.paragraph} · Знакомство`;
-  $('cards-sub').textContent = peek ? 'Только то, что будет в этой тренировке.' : `${list.length} карточек: ${RUS ? 'понятия параграфа' : 'даты, термины, имена'}. Нажми, чтобы перевернуть. Долистай до конца — и откроется первая тренировка.`;
+  $('cards-sub').textContent = peek ? 'Только то, что будет в этой тренировке.' : `${list.length} карточек: ${RUS ? 'понятия параграфа' : GEO ? 'числа, термины, объекты' : 'даты, термины, имена'}. Нажми, чтобы перевернуть. Долистай до конца — и откроется первая тренировка.`;
   $('cards-start').textContent = peek ? 'Поехали' : 'Я все посмотрел';
   $('cards-start').disabled = !peek;
   renderCard();
@@ -441,15 +448,22 @@ $('soon-back').onclick = () => { renderHome(); show('screen-home'); };
 // Каждое задание: { kind, render(el), check() -> {ok, half?, answerText}, fact? }
 const yearFacts = (facts) => facts.filter(f => f.year && !/в\./.test(f.date));
 
+// в географии варианты-числа берем из той же группы (длины с длинами), а если мало — правдоподобные соседние
+function geoOpts(fact, others) {
+  const unit = String(fact.date).replace(/^[\d\s.,]+/, '');
+  const same = [...new Set(others.filter(f => f.century === fact.century && f.date !== fact.date).map(f => f.date))];
+  const fake = [0.6, 0.8, 1.25, 1.5].map(k => `${Math.round(fact.year * k)} ${unit}`.trim());
+  return shuffle([fact.date, ...pick([...same, ...fake.filter(x => !same.includes(x))].slice(0, Math.max(3, same.length)), 3)]);
+}
 function tChoiceDate(fact, pool) {
   const ask = Math.random() < 0.5;
   const others = pool.filter(f => f.id !== fact.id);
   if (ask) { // событие → дата
     const opts = shuffle([fact.date, ...pick([...new Set(others.filter(f => f.date !== fact.date).map(f => f.date))], 3)]);
-    return choice(`Когда: ${fact.event}?`, opts, fact.date, fact);
+    return choice(GEO ? `${fact.event}?` : `Когда: ${fact.event}?`, GEO ? geoOpts(fact, others) : opts, fact.date, fact);
   }
   const opts = shuffle([fact.event, ...pick(others.filter(f => f.event !== fact.event).map(f => f.event), 3)]);
-  return choice(`${fact.date} — что произошло?`, opts, fact.event, fact);
+  return choice(GEO ? `${fact.date} — что это?` : `${fact.date} — что произошло?`, opts, fact.event, fact);
 }
 function tChoiceTerm(term, pool) {
   const opts = shuffle([term.definition, ...pick(pool.filter(t => t.id !== term.id).map(t => t.definition), 3)]);
@@ -457,7 +471,7 @@ function tChoiceTerm(term, pool) {
 }
 function tChoicePerson(p, pool) {
   const opts = shuffle([p.who, ...pick(pool.filter(x => x.id !== p.id).map(x => x.who), 3)]);
-  return choice(`${p.name} — кто это?`, opts, p.who, null, `${p.name} — ${p.who[0].toLowerCase() + p.who.slice(1)}`);
+  return choice(GEO ? `${p.name} — что это?` : `${p.name} — кто это?`, opts, p.who, null, `${p.name} — ${p.who[0].toLowerCase() + p.who.slice(1)}`);
 }
 function tCause(c) {
   const opts = shuffle([c.effect, ...c.wrong]);
@@ -484,13 +498,13 @@ function choice(q, opts, answer, fact, answerText, lead = false) {
 
 const PAIR_LIMIT = 3;
 function tPairs(facts) {
-  return pairsTask(pick(facts, Math.min(4, facts.length)).map(f => ({ id: f.id, l: f.date, r: f.event })), 'Соедини даты и события');
+  return pairsTask(pick(facts, Math.min(4, facts.length)).map(f => ({ id: f.id, l: f.date, r: f.event })), GEO ? 'Соедини числа и объекты' : 'Соедини даты и события');
 }
 function tPairsTerms(terms) {
   return pairsTask(pick(terms, 4).map(t => ({ id: t.id, l: t.term, r: t.definition })), 'Соедини термины и значения');
 }
 function tPairsPersons(persons) {
-  return pairsTask(pick(persons, 4).map(p => ({ id: p.id, l: p.name, r: p.who })), 'Кто есть кто: соедини');
+  return pairsTask(pick(persons, 4).map(p => ({ id: p.id, l: p.name, r: p.who })), GEO ? 'Что есть что: соедини' : 'Кто есть кто: соедини');
 }
 function pairsTask(set, title) {
   return {
@@ -525,6 +539,11 @@ function pairsTask(set, title) {
 }
 
 function tOrder(facts) {
+  if (GEO) { // сравниваем только одинаковое: длины с длинами, высоты с высотами
+    const groups = {}; facts.forEach(f => (groups[f.century] = groups[f.century] || []).push(f));
+    const g = shuffle(Object.values(groups).filter(x => x.length >= 3))[0] || facts;
+    facts = g;
+  }
   const uniq = []; const seen = new Set();
   for (const f of shuffle(facts)) { if (!seen.has(f.year)) { seen.add(f.year); uniq.push(f); } if (uniq.length === 4) break; }
   const sorted = [...uniq].sort((a, b) => a.year - b.year);
@@ -533,7 +552,7 @@ function tOrder(facts) {
     render(el, hint = 0) {
       const preN = hint === 1 ? 1 : hint >= 2 ? Math.max(0, sorted.length - 2) : 0;
       const chosen = sorted.slice(0, preN).map(f => f.id);
-      el.innerHTML = `${hintTag(hint)}<h2>Расставь по порядку: от раннего к позднему</h2><div class="slots" id="slots">${sorted.map((f, i) => i < preN ? `<div class="slot filled">${i + 1}. ${esc(f.event)}</div>` : `<div class="slot">${i + 1}</div>`).join('')}</div>
+      el.innerHTML = `${hintTag(hint)}<h2>Расставь ${GEO ? esc((D.topics.orderGroups || {})[sorted[0].century] || 'по возрастанию') : 'по порядку: от раннего к позднему'}</h2><div class="slots" id="slots">${sorted.map((f, i) => i < preN ? `<div class="slot filled">${i + 1}. ${esc(f.event)}</div>` : `<div class="slot">${i + 1}</div>`).join('')}</div>
         <div class="options" id="order-opts">${shuffle(uniq.filter(f => !chosen.includes(f.id))).map(f => `<button class="opt" data-id="${f.id}">${esc(f.event)}${hint >= 1 ? ` <span class="small muted">(${esc(String(f.date))})</span>` : ''}</button>`).join('')}</div>`;
       el.querySelectorAll('#order-opts .opt').forEach(b => b.onclick = () => {
         if (b.disabled) return;
@@ -593,6 +612,7 @@ function tTrueFalse(s) {
 }
 
 function tType(fact) {
+  if (GEO) return tTypeNum(fact);
   const period = /[—-]/.test(fact.date) && !/^ок/.test(fact.date);
   return {
     kind: 'type', fact, answerText: `${fact.date} — ${fact.event}`,
@@ -613,6 +633,33 @@ function tType(fact) {
         const diff = Math.abs(v - fact.year);
         inp.classList.add(diff === 0 ? 'correct' : 'wrong');
         finishTask(diff === 0, diff === 1);
+      };
+      inp.onkeydown = (e) => { if (e.key === 'Enter') btn.onclick(); };
+    },
+  };
+}
+
+// география: напечатать число; засчитываем с точностью 3% (длину Нила до километра никто не помнит, а 6700 — помнит)
+function tTypeNum(fact) {
+  const unit = String(fact.date).replace(/^[\d\s.,]+/, '').trim();
+  return {
+    kind: 'type', fact, answerText: `${fact.date} — ${fact.event}`,
+    render(el, hint = 0) {
+      const y = String(fact.year);
+      const h = hint === 1 ? `<p class="small muted">Подсказка: ${y.length}-значное число, начинается на ${y[0]}.</p>` : hint >= 2 ? `<p class="small muted">Подсказка: ${esc(y.slice(0, 2) + '_'.repeat(Math.max(0, y.length - 2)))}</p>` : '';
+      el.innerHTML = `${hintTag(hint)}<h2>${esc(fact.event)}: сколько${unit ? ' (' + esc(unit) + ')' : ''}?</h2>${h}
+        <input class="year" id="year-input" type="number" inputmode="numeric" placeholder="${esc(unit || 'число')}" min="0">`;
+      const inp = el.querySelector('#year-input');
+      inp.focus();
+      const btn = $('check-btn');
+      btn.classList.remove('hidden');
+      btn.onclick = () => {
+        const v = parseInt(inp.value, 10);
+        if (!v) { inp.focus(); return; }
+        btn.classList.add('hidden'); inp.disabled = true;
+        const ok = Math.abs(v - fact.year) <= Math.max(1, fact.year * 0.03);
+        inp.classList.add(ok ? 'correct' : 'wrong');
+        finishTask(ok, !ok && Math.abs(v - fact.year) <= fact.year * 0.1);
       };
       inp.onkeydown = (e) => { if (e.key === 'Enter') btn.onclick(); };
     },
@@ -733,8 +780,8 @@ function tLeadFact(f) { // дата + событие в контексте, пр
   return choice(`${f.date}: ${text}`, shuffle([key, wrong]), key, f, `${f.date} — ${f.event}`, true);
 }
 function tLeadFactDate(f) {
-  const d = String(f.date); const fake = /^\d{4}/.test(d) ? String(+d.slice(0, 4) + 300) : '2024';
-  return choice(`${f.event}. Когда?`, shuffle([d, fake]), d, f, `${f.date} — ${f.event}`, true);
+  const d = String(f.date); const fake = GEO ? geoOpts(f, []).find(x => x !== d) : /^\d{4}/.test(d) ? String(+d.slice(0, 4) + 300) : '2024';
+  return choice(GEO ? `${f.event}. Сколько?` : `${f.event}. Когда?`, shuffle([d, fake]), d, f, `${f.date} — ${f.event}`, true);
 }
 function tLeadTerm(t) { // перефразируй своими словами
   const opts = shuffle([t.definition, ...pick(SILLY, 2)]);
@@ -742,7 +789,7 @@ function tLeadTerm(t) { // перефразируй своими словами
 }
 function tLeadPerson(p) {
   const opts = shuffle([p.who, ...pick(SILLY, 2)]);
-  return choice(`${p.name}. Кто это, судя по всему?`, opts, p.who, null, `${p.name} — ${p.who[0].toLowerCase() + p.who.slice(1)}`, true);
+  return choice(GEO ? `${p.name}. Что это, судя по всему?` : `${p.name}. Кто это, судя по всему?`, opts, p.who, null, `${p.name} — ${p.who[0].toLowerCase() + p.who.slice(1)}`, true);
 }
 function markMet(items) { state.met = state.met || {}; items.forEach(x => state.met[leadKey(x)] = 1); save(); }
 function unmet(pool) { const m = state.met || {}; return [...pool.facts, ...pool.terms, ...pool.persons].filter(x => !m[leadKey(x)]); }
@@ -894,7 +941,7 @@ function startChest(tid) {
 function startTopicExam(tid) { startRun('exam', buildTopicExam(tid), { tid, idx: planFor(tid).indexOf('exam'), intro: `Контрольная по ${D.topicById[tid].paragraph}. Как учитель спросит.` }); }
 function startBoss(chId, level) {
   const ch = D.topics.chapters.find(c => c.id === chId);
-  const intro = level === 3 ? `Босс. ${RUS ? 'Объясняешь своими словами' : 'Даты с клавиатуры'}, жизней: ${Math.max(1, state.hearts)}.` : `${ChName(ch)}, уровень ${level}: ${BOSS_LEVELS[level - 1].title}.`;
+  const intro = level === 3 ? `Босс. ${RUS ? 'Объясняешь своими словами' : GEO ? 'Числа с клавиатуры' : 'Даты с клавиатуры'}, жизней: ${Math.max(1, state.hearts)}.` : `${ChName(ch)}, уровень ${level}: ${BOSS_LEVELS[level - 1].title}.`;
   startRun('boss', buildBoss(ch, level), { chapter: ch, level, intro });
 }
 // ---------- качалка: вся глава за одну тренировку ----------
@@ -902,6 +949,10 @@ function startBoss(chId, level) {
 // Задания собираются заново при каждом запуске, ошибки возвращаются в конце с подсказкой.
 const GYM_MODES = RUS ? {
   terms:   { title: 'Понятия', items: (ts) => byTopics(D.terms, ts), word: ['понятие', 'понятия', 'понятий'] },
+} : GEO ? {
+  dates:   { title: 'Числа', items: (ts) => byTopics(D.facts, ts), word: ['число', 'числа', 'чисел'] },
+  terms:   { title: 'Термины', items: (ts) => byTopics(D.terms, ts), word: ['термин', 'термина', 'терминов'] },
+  persons: { title: 'Объекты', items: (ts) => byTopics(D.persons, ts), word: ['объект', 'объекта', 'объектов'] },
 } : {
   dates:   { title: 'Даты', items: (ts) => byTopics(D.facts, ts), word: ['дата', 'даты', 'дат'] },
   terms:   { title: 'Термины', items: (ts) => byTopics(D.terms, ts), word: ['термин', 'термина', 'терминов'] },
@@ -977,7 +1028,7 @@ function renderGym() {
   $('gym-seg').innerHTML = Object.entries(GYM_MODES).map(([k, m]) => `<button class="seg-btn${k === gymMode ? ' active' : ''}" data-mode="${k}">${m.title}</button>`).join('');
   $('gym-seg').querySelectorAll('.seg-btn').forEach(b => b.onclick = () => { gymMode = b.dataset.mode; renderGym(); });
   $('gym-pic').innerHTML = charSVG('dushka', 'idle', null, 46);
-  $('gym-say').innerHTML = `<b>Душка:</b> Вся глава за один подход. Всего 7–10 минут — и ты готов к проверочной по ${RUS ? 'теории' : { dates: 'датам', terms: 'терминам', persons: 'личностям' }[gymMode]}. Не уверен — повторяй, пока не надоест.`;
+  $('gym-say').innerHTML = `<b>Душка:</b> Вся глава за один подход. Всего 7–10 минут — и ты готов к проверочной по ${RUS ? 'теории' : (GEO ? { dates: 'числам', terms: 'терминам', persons: 'объектам' } : { dates: 'датам', terms: 'терминам', persons: 'личностям' })[gymMode]}. Не уверен — повторяй, пока не надоест.`;
   const box = $('gym-list'); box.innerHTML = ''; let book = null;
   for (const ch of D.topics.chapters) {
     const n = GYM_MODES[gymMode].items(ch.topics).length; if (!n) continue;
