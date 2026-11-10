@@ -4,7 +4,7 @@
 
 const SUBJECTS = [
   { id: 'istoria', title: 'Истори-тренажер', course: 'srednie-veka-6', courseTitle: 'История, 6 класс', on: true, store: 'istoria-trainer-v3' },
-  { id: 'russkiy', title: 'Русич-тренажер', course: 'russkiy-6', courseTitle: 'Русский язык, 6 класс', on: true, store: 'russkiy-trainer-v1', extra: ['nik', 'why', 'build', 'rpairs'] },
+  { id: 'russkiy', title: 'Русича-тренажер', course: 'russkiy-6', courseTitle: 'Русский язык, 6 класс', on: true, store: 'russkiy-trainer-v1', extra: ['nik', 'why', 'build', 'rpairs'] },
   { id: 'geografia', title: 'Гео-тренажер', course: null, courseTitle: '6 класс', on: false },
   { id: 'biologia', title: 'Био-тренажер', course: null, courseTitle: '6 класс', on: false },
 ];
@@ -40,8 +40,19 @@ function loadState() {
 }
 const state = Object.assign({ v: 3, xp: 0, streak: 0, lastDay: null, wrong: [], seen: {}, steps: {}, layouts: {}, hearts: 0, bosses: {}, gym: {}, current: null, moreClicks: 0, profile: null }, loadState());
 // профиль ученика: ник и аватар (js/avatar.js). Появляется при первом заходе в кабинет; дальше уедет в аккаунт
-if (!state.profile) state.profile = { nick: '', avatar: null };
-function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch { /* приватный режим */ } }
+// Профиль общий для всех предметов: свой ключ в хранилище, а не внутри прогресса предмета.
+// Раньше профиль жил в прогрессе предмета и при переключении предмета аватар «сбрасывался» — переносим.
+const PROFILE_KEY = 'ne-stydno-profile';
+function loadProfile() {
+  try { const p = JSON.parse(localStorage.getItem(PROFILE_KEY)); if (p) return p; } catch { /* нет хранилища */ }
+  for (const s of SUBJECTS) { // перенос: первый предмет, где аватар уже настроен (история — первой)
+    if (!s.store) continue;
+    try { const st = JSON.parse(localStorage.getItem(s.store)); if (st && st.profile && st.profile.avatar) return st.profile; } catch { /* битые данные */ }
+  }
+  return null;
+}
+state.profile = loadProfile() || state.profile || { nick: '', avatar: null };
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); localStorage.setItem(PROFILE_KEY, JSON.stringify(state.profile)); } catch { /* приватный режим */ } }
 function touchStreak() {
   const t = today();
   if (state.lastDay === t) return;
