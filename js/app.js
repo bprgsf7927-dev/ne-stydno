@@ -107,7 +107,27 @@ async function checkUpdate() {
     if (m && window.APP_V && m[1] !== window.APP_V && !location.search.includes('v=' + m[1])) { updateReady = m[1]; if ($('screen-task').classList.contains('hidden')) reloadTo(m[1]); }
   } catch (e) { /* нет сети — проверим в следующий раз */ }
 }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { checkUpdate(); ping(); } });
+// ---------- анонимный счетчик учеников ----------
+// Раз в день отправляем: случайный id устройства, предмет и сколько тренировок прошло с прошлой отправки.
+// Ни имени, ни ника, ни прогресса. Сводка видна всем на stats.html.
+const API = 'https://functions.yandexcloud.net/d4epkag2qmmj8fa10ptq';
+const DEVICE_KEY = 'ne-stydno-device', RUNS_KEY = 'ne-stydno-runs', PING_KEY = 'ne-stydno-ping';
+const mskDay = () => new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10);
+function countRun() { try { localStorage.setItem(RUNS_KEY, String((+localStorage.getItem(RUNS_KEY) || 0) + 1)); } catch { /* нет хранилища */ } }
+async function ping() {
+  try {
+    if (localStorage.getItem(PING_KEY) === mskDay()) return;
+    let d = localStorage.getItem(DEVICE_KEY);
+    if (!d) { d = [...crypto.getRandomValues(new Uint8Array(8))].map(b => b.toString(16).padStart(2, '0')).join(''); localStorage.setItem(DEVICE_KEY, d); }
+    const n = +localStorage.getItem(RUNS_KEY) || 0;
+    // text/plain — «простой» запрос, без лишнего предварительного запроса CORS
+    const r = await fetch(API + '?r=ping', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ d, s: SUBJECT.id, n }) });
+    if (!r.ok) return; // сервер лежит — попробуем в следующий раз, тренировки не потеряются
+    localStorage.setItem(RUNS_KEY, String(Math.max(0, (+localStorage.getItem(RUNS_KEY) || 0) - n)));
+    localStorage.setItem(PING_KEY, mskDay());
+  } catch { /* нет сети или хранилища — не мешаем учиться */ }
+}
 function show(id) {
   if (updateReady && id !== 'screen-task') { reloadTo(updateReady); return; }
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
@@ -1270,6 +1290,7 @@ function next() {
 }
 
 function finishRun(lost) {
+  countRun();
   $('progress-bar').style.width = '100%'; $('progress-count').textContent = '';
   const n = run.tasks.length, s = run.score;
   const pct = run.redo ? (run.firstPass ?? Math.round(s / n * 100)) : Math.round(s / n * 100);
@@ -1466,5 +1487,5 @@ if (window.ResizeObserver) { const ro = new ResizeObserver(measureBars); ro.obse
 window.addEventListener('resize', measureBars);
 $('brand').textContent = SUBJECT.title;
 document.querySelector('.welcome-note').textContent = `${SUBJECT.courseTitle}. Без регистрации, прогресс хранится на этом телефоне.`;
-loadContent().then(() => { checkUpdate(); renderStats(); renderWelcome(); renderTabs('map'); if (hasProgress()) { renderHome(); show('screen-home'); } else show('screen-welcome'); })
+loadContent().then(() => { checkUpdate(); ping(); renderStats(); renderWelcome(); renderTabs('map'); if (hasProgress()) { renderHome(); show('screen-home'); } else show('screen-welcome'); })
   .catch(e => { $('map').innerHTML = `<p class="muted">Не удалось загрузить контент (${esc(e.message)}). Открой сайт через сервер, а не как файл.</p>`; });

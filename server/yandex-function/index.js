@@ -6,6 +6,8 @@
 //  2) Telegram: POST ?r=tg (вебхук)   → ученик нажал «Старт», бот привязывает код к его Telegram id
 //  3) сайт: GET ?r=check&code=<код>   → раз в 2 секунды; когда код привязан — выдаем токен сессии
 //  4) сайт: GET/PUT ?r=progress       → с заголовком Authorization: Bearer <токен>
+//  Счетчик (анонимный): POST ?r=ping {d: случайный id устройства, s: предмет, n: тренировок с прошлого раза}
+//                       GET  ?r=stats → {devices, trainings, accounts, today, week, subjects} — публично, для страницы stats.html
 //  Один раз после настройки: GET ?r=setup — функция сама подключает вебхук бота (токен никому показывать не нужно)
 //
 // Переменные окружения функции:
@@ -69,6 +71,43 @@ function readToken(h) {
   return d.exp > Date.now() ? d.uid : null;
 }
 
+// ---------- счетчик: никаких личных данных, только случайный id устройства ----------
+// devices/<id>.json — по файлу на устройство (так одно устройство не считается дважды); stats.json — сводка.
+// Сводку обновляем «прочитал-прибавил-записал»: при наших объемах гонки почти невозможны, а ошибка в единицу не страшна.
+const day = (t = Date.now()) => new Date(t + 3 * 3600 * 1000).toISOString().slice(0, 10); // день по Москве
+const SUBJECTS = ['istoria', 'russkiy', 'geografia'];
+async function loadStats(ctx) {
+  return (await s3(ctx, 'GET', 'stats.json')) || { devices: 0, trainings: 0, accounts: 0, days: {}, subjects: {} };
+}
+async function onPing(ctx, b) {
+  const id = String(b.d || '');
+  if (!/^[a-f0-9]{16,32}$/.test(id)) return false;
+  const subj = SUBJECTS.includes(b.s) ? b.s : '';
+  const n = Math.max(0, Math.min(200, parseInt(b.n, 10) || 0)); // больше 200 тренировок за раз не бывает — режем накрутку
+  const today = day();
+  const dev = await s3(ctx, 'GET', `devices/${id}.json`);
+  const st = await loadStats(ctx);
+  if (!dev) st.devices++;
+  if (!dev || dev.last !== today) st.days[today] = (st.days[today] || 0) + 1;
+  st.trainings += n;
+  if (subj && (!dev || !(dev.subjects || []).includes(subj))) st.subjects[subj] = (st.subjects[subj] || 0) + 1;
+  for (const k of Object.keys(st.days).sort().slice(0, -60)) delete st.days[k]; // храним 60 дней
+  const subjects = [...new Set([...((dev && dev.subjects) || []), ...(subj ? [subj] : [])])];
+  await s3(ctx, 'PUT', `devices/${id}.json`, { first: (dev && dev.first) || today, last: today, subjects });
+  await s3(ctx, 'PUT', 'stats.json', st);
+  return true;
+}
+function publicStats(st) {
+  const today = day(), weekAgo = day(Date.now() - 6 * 86400000);
+  const week = Object.entries(st.days).filter(([k]) => k >= weekAgo).map(([, v]) => v);
+  return {
+    devices: st.devices, trainings: st.trainings, accounts: st.accounts, subjects: st.subjects,
+    today: st.days[today] || 0,
+    weekMax: week.length ? Math.max(...week) : 0, // «до N учеников в день за неделю»
+    days: Object.fromEntries(Object.entries(st.days).filter(([k]) => k >= day(Date.now() - 29 * 86400000))),
+  };
+}
+
 // ---------- Telegram ----------
 async function tg(method, payload) {
   await fetch(`https://api.telegram.org/bot${ENV.BOT_TOKEN}/${method}`, {
@@ -127,6 +166,16 @@ module.exports.handler = async function (event, ctx) {
         const t = await r.json();
         return reply(200, { ok: !!t.ok, telegram: t.description || '' });
       }
+      case 'ping': { // анонимный счетчик
+        if (method !== 'POST') return reply(405, { error: 'method' });
+        return reply((await onPing(ctx, body)) ? 200 : 400, { ok: true });
+      }
+      case 'stats': { // публичная сводка для хвастовства
+        const r = reply(200, publicStats(await loadStats(ctx)));
+        r.headers['Cache-Control'] = 'public, max-age=300';
+        r.headers['Access-Control-Allow-Origin'] = '*'; // сводку можно показывать где угодно
+        return r;
+      }
       case 'check': { // сайт ждет, пока ученик нажмет «Старт» в боте
         const code = String(q.code || '');
         if (!/^[a-f0-9]{16}$/.test(code)) return reply(400, { error: 'code' });
@@ -134,8 +183,10 @@ module.exports.handler = async function (event, ctx) {
         if (!p || Date.now() - p.t > CODE_TTL) return reply(410, { error: 'expired' });
         if (!p.uid) return reply(200, { wait: true });
         await s3(ctx, 'DELETE', `pending/${code}.json`);
-        const user = (await s3(ctx, 'GET', `users/${p.uid}.json`)) || { nick: p.name, created: Date.now() };
+        const old = await s3(ctx, 'GET', `users/${p.uid}.json`);
+        const user = old || { nick: p.name, created: Date.now() };
         if (!user.nick) user.nick = p.name;
+        if (!old) { const st = await loadStats(ctx); st.accounts++; await s3(ctx, 'PUT', 'stats.json', st); } // вариант 3: сколько завели аккаунт
         await s3(ctx, 'PUT', `users/${p.uid}.json`, user);
         return reply(200, { token: makeToken(p.uid), nick: user.nick, avatar: user.avatar || null, state: user.state || null, updated: user.updated || 0 });
       }

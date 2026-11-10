@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fbfbf8">
+<title>Не стыдно — счетчик</title>
+<meta name="description" content="Сколько учеников уже занимается в тренажере «Не стыдно».">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="assets/icon.svg?v=2" type="image/svg+xml">
+<style>
+  html, body { height: auto !important; overflow: visible !important; display: block !important; }
+  .st-wrap { max-width: 560px; margin: 0 auto; padding: 24px 18px 48px; }
+  .st-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; }
+  .st-card { background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .st-card b { display: block; font-family: Caveat, cursive; font-size: 46px; line-height: 1; color: var(--accent); }
+  .st-card span { color: var(--muted); font-size: 15px; }
+  .st-big { grid-column: 1 / -1; }
+  .st-big b { font-size: 64px; }
+  .st-bars { display: flex; align-items: flex-end; gap: 3px; height: 70px; margin-top: 10px; }
+  .st-bars i { flex: 1; background: var(--accent-soft); border-radius: 3px 3px 0 0; min-height: 3px; }
+  .st-bars i.now { background: var(--accent); }
+  .st-subj { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .st-subj:last-child { border: 0; }
+  a.btn { display: inline-block; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="st-wrap">
+  <h1>Нас уже столько</h1>
+  <p class="muted">Считаем без имен: только сколько телефонов открывали тренажер и сколько тренировок пройдено.</p>
+  <div id="st" class="st-grid"><div class="st-card st-big"><span>Считаем…</span></div></div>
+  <p style="text-align:center"><a class="btn" href="./">В тренажер</a></p>
+</div>
+<script>
+const API = 'https://functions.yandexcloud.net/d4epkag2qmmj8fa10ptq';
+const NAMES = { istoria: 'История', russkiy: 'Русский', geografia: 'География' };
+const fmt = (n) => (n || 0).toLocaleString('ru-RU');
+// «1 ученик», «3 ученика», «7 учеников»
+const plural = (n, a, b, c) => { const m = n % 100, k = n % 10; return m > 10 && m < 20 ? c : k === 1 ? a : k > 1 && k < 5 ? b : c; };
+const card = (v, t, cls = '') => `<div class="st-card ${cls}"><b>${fmt(v)}</b><span>${t}</span></div>`;
+async function load() {
+  const el = document.getElementById('st');
+  try {
+    const s = await (await fetch(API + '?r=stats')).json();
+    const days = [];
+    for (let i = 29; i >= 0; i--) { const d = new Date(Date.now() + 3 * 3600e3 - i * 86400e3).toISOString().slice(0, 10); days.push(s.days[d] || 0); }
+    const max = Math.max(1, ...days);
+    const subj = Object.entries(s.subjects || {}).sort((a, b) => b[1] - a[1]);
+    el.innerHTML =
+      card(s.devices, plural(s.devices, 'ученик открыл тренажер', 'ученика открыли тренажер', 'учеников открыли тренажер'), 'st-big') +
+      card(s.trainings, plural(s.trainings, 'тренировка пройдена', 'тренировки пройдены', 'тренировок пройдено')) +
+      card(s.accounts, plural(s.accounts, 'завел аккаунт', 'завели аккаунт', 'завели аккаунт') + ' в Telegram') +
+      `<div class="st-card st-big"><span>Сегодня занимались: <b style="display:inline;font-size:30px">${fmt(s.today)}</b></span>
+         <div class="st-bars">${days.map((v, i) => `<i class="${i === 29 ? 'now' : ''}" style="height:${Math.round(v / max * 100)}%" title="${v}"></i>`).join('')}</div>
+         <span class="small">последние 30 дней</span></div>` +
+      (subj.length ? `<div class="st-card st-big">${subj.map(([k, v]) => `<div class="st-subj"><span>${NAMES[k] || k}</span><b style="display:inline;font-size:26px">${fmt(v)}</b></div>`).join('')}</div>` : '');
+  } catch (e) {
+    el.innerHTML = '<div class="st-card st-big"><span>Счетчик сейчас не отвечает. Загляни чуть позже.</span></div>';
+  }
+}
+load();
+</script>
+</body>
+</html>
