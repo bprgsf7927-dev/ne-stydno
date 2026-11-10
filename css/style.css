@@ -412,14 +412,26 @@ textarea.explain:disabled { color: var(--muted); }
 .key { display: flex; gap: 10px; align-items: flex-start; border: 2px solid var(--ink); border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; padding: 8px 12px; background: var(--card); cursor: pointer; }
 .key input { width: 20px; height: 20px; accent-color: var(--ok); margin: 1px 0 0; flex: none; }
 
-/* география: карта материков и «разложи по материкам» */
-.geo-map { border: 2.5px solid var(--ink); border-radius: 255px 18px 225px 18px / 18px 225px 18px 255px; background: var(--card); padding: 6px; margin: 4px 0 6px; }
+/* география: карта мира (js/worldmap.js) и «разложи по материкам» */
+.geo-map { border: 2.5px solid var(--ink); border-radius: 255px 18px 225px 18px / 18px 225px 18px 255px; background: var(--card); padding: 4px; margin: 4px 0 6px; }
 .geo-map svg { width: 100%; height: auto; display: block; }
-.geo-map .cont { fill: #fffdf6; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; cursor: pointer; transition: fill .15s; }
-.geo-map .cont:hover { fill: #eef2fb; }
+.geo-map .ocean { fill: transparent; stroke: none; }
+.geo-map.mode-ocean .ocean { cursor: pointer; }
+.geo-map.mode-ocean .ocean:hover { fill: rgba(60, 100, 200, .08); }
+.geo-map .ocean.ok { fill: rgba(47, 158, 91, .22); }
+.geo-map .ocean.bad { fill: rgba(192, 57, 43, .18); }
+.geo-map .ocean.dim { fill: rgba(30, 34, 53, .06); pointer-events: none; }
+.geo-map .cont, .geo-map .land-other { fill: #fffdf6; stroke: var(--ink); stroke-width: 1; stroke-linejoin: round; }
+.geo-map .land-other { fill: #eceef3; }
+.geo-map.mode-cont .cont { cursor: pointer; }
+.geo-map.mode-cont .cont:hover { fill: #eef2fb; }
+.geo-map.mode-ocean .cont, .geo-map.mode-ocean .land-other { pointer-events: none; }
 .geo-map .cont.dim { opacity: .25; pointer-events: none; }
-.geo-map .cont.ok { fill: #cfeedd; stroke: var(--ok); stroke-width: 3; }
-.geo-map .cont.bad { fill: #f6d3cd; stroke: #c0392b; stroke-width: 3; }
+.geo-map .cont.ok { fill: #cfeedd; stroke: var(--ok); stroke-width: 1.6; }
+.geo-map .cont.bad { fill: #f6d3cd; stroke: #c0392b; stroke-width: 1.6; }
+.geo-map .mk-ring { fill: none; stroke: #c0392b; stroke-width: 1.6; animation: mkpulse 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.geo-map .mk-dot { fill: #c0392b; stroke: #fff; stroke-width: .8; }
+@keyframes mkpulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: .4; } }
 .geo-picked { text-align: center; min-height: 1.4em; }
 .sort-list { display: flex; flex-direction: column; gap: 6px; }
 .sort-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; align-items: center; }

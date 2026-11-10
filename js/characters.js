@@ -116,4 +116,9 @@ function costumeOf(tid) {
   if (['r19-20', 'r42-43'].includes(tid)) return COSTUMES.rm;
   return COSTUMES.r;
 }
-function charLine(id, mood) { const a = CHARS[id].say[mood] || CHARS[id].say.idle; return a[Math.floor(Math.random() * a.length)]; }
+function charLine(id, mood) {
+  let a = CHARS[id].say[mood] || CHARS[id].say.idle;
+  // реплики про даты — только для истории; в других предметах их пропускаем
+  if (typeof SUBJECT !== 'undefined' && SUBJECT.id !== 'istoria') { const f = a.filter(x => !/дат/i.test(x)); if (f.length) a = f; }
+  return a[Math.floor(Math.random() * a.length)];
+}

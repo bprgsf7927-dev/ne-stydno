@@ -14,6 +14,8 @@ const SUBJECT = (() => { let id = new URLSearchParams(location.search).get('s');
 const RUS = SUBJECT.id === 'russkiy';
 // география идет на движке истории: «даты» у нее — числа (длины рек, высоты), «личности» — объекты (реки, водопады)
 const GEO = SUBJECT.id === 'geografia';
+// карта мира нужна только географии: подгружаем отдельным файлом
+if (GEO) { const sc = document.createElement('script'); sc.src = 'js/worldmap.js?v=' + (window.APP_V || ''); document.head.appendChild(sc); }
 const COURSE = SUBJECT.course;
 const LESSON_LEN = 8;
 const STORE_KEY = SUBJECT.store;
@@ -667,15 +669,31 @@ function tTypeNum(fact) {
 }
 
 // ---------- география: «где это» и карта материков ----------
-// Рисованная карта мира в стиле тетради: материки — кнопки. Координаты грубые нарочно: это каракули, а не атлас.
-const WORLD = {
-  'Северная Америка': 'M22 38 Q40 24 62 22 L108 18 Q122 22 126 34 L112 52 Q100 64 94 72 L86 86 Q82 96 76 94 L68 86 Q60 72 48 62 L32 56 Q24 48 22 38 Z M124 16 L150 12 L146 30 L130 32 Z',
-  'Южная Америка': 'M94 96 Q108 90 118 94 L136 106 Q134 120 128 128 L116 146 L106 162 Q100 156 100 146 L98 122 Q94 110 94 96 Z',
-  'Евразия': 'M166 32 Q190 20 204 20 L262 14 L320 20 Q342 26 346 36 L332 50 L320 60 L306 72 L290 86 L272 80 L256 90 L246 76 L226 70 L212 62 L196 56 L182 58 L170 50 Q164 42 166 32 Z',
-  'Африка': 'M164 64 L196 60 Q212 64 216 72 L222 86 L212 100 L206 124 L196 136 L188 126 L182 102 L170 92 Q160 78 164 64 Z',
-  'Австралия': 'M290 112 L314 104 Q328 110 330 118 L324 136 L306 136 L292 126 Z',
-  'Антарктида': 'M40 172 Q100 166 180 168 T320 172 L318 182 L42 182 Z',
-};
+// Карта мира: js/worldmap.js (Natural Earth, проекция Natural Earth), грузится только в географии.
+// Материки и океаны — кнопки; точки рек и водопадов проецируем из долготы и широты в контенте.
+const WORLD_CONTS = ['Евразия', 'Африка', 'Северная Америка', 'Южная Америка', 'Австралия', 'Антарктида'];
+function ne1(lon, lat) {
+  const M = window.WORLD_MAP, l = lon * Math.PI / 180, p = lat * Math.PI / 180, p2 = p * p, p4 = p2 * p2;
+  const x = l * (0.8707 - 0.131979 * p2 + p4 * (-0.013791 + p4 * (0.003971 * p2 - 0.001529 * p4)));
+  const y = p * (1.007226 + p2 * (0.015085 + p4 * (-0.044475 + 0.028874 * p2 - 0.005916 * p4)));
+  return [M.tx + x * M.scale, M.ty - y * M.scale];
+}
+// mode: 'cont' — нажимаются материки, 'ocean' — океаны, 'none' — только смотреть; dim — погасить; marker — объект
+function mapSVG({ mode = 'none', dim = new Set(), marker = null } = {}) {
+  const M = window.WORLD_MAP;
+  if (!M) return '<p class="small muted">Карта загружается…</p>';
+  const mk = marker && marker.lon != null ? ne1(marker.lon, marker.lat) : null;
+  return `<div class="geo-map mode-${mode}"><svg viewBox="0 0 ${M.w} ${M.h}" role="img" aria-label="Карта мира">
+    <defs><pattern id="sea" width="8" height="8" patternUnits="userSpaceOnUse"><path d="M0 5 q2 -2.5 4 0 t4 0" fill="none" stroke="#c9d6ec" stroke-width=".8"/></pattern>
+    <filter id="wobble"><feTurbulence type="fractalNoise" baseFrequency=".05" numOctaves="2" seed="3"/><feDisplacementMap in="SourceGraphic" scale="1.6"/></filter>
+    <clipPath id="sph"><path d="${M.sphere}"/></clipPath></defs>
+    <path d="${M.sphere}" fill="url(#sea)" stroke="#1e2235" stroke-width="1.6"/>
+    <g clip-path="url(#sph)">${Object.entries(M.oceans).map(([o, d]) => `<path class="ocean${dim.has(o) ? ' dim' : ''}" data-o="${esc(o)}" d="${d}"/>`).join('')}</g>
+    <g filter="url(#wobble)">${M.conts.other ? `<path class="land-other" d="${M.conts.other}"/>` : ''}${WORLD_CONTS.filter(c => M.conts[c]).map(c => `<path class="cont${dim.has(c) ? ' dim' : ''}" data-c="${esc(c)}" d="${M.conts[c]}"/>`).join('')}</g>
+    ${mk ? `<g class="marker"><circle cx="${mk[0].toFixed(1)}" cy="${mk[1].toFixed(1)}" r="6" class="mk-ring"/><circle cx="${mk[0].toFixed(1)}" cy="${mk[1].toFixed(1)}" r="2.6" class="mk-dot"/></g>` : ''}
+  </svg></div>`;
+}
+const WORLD = new Proxy({}, { get: (_, k) => (window.WORLD_MAP || { conts: {} }).conts[k], ownKeys: () => WORLD_CONTS, getOwnPropertyDescriptor: () => ({ enumerable: true, configurable: true }) });
 const geoObjs = (arr) => (arr || []).filter(p => p.cont);
 const verb = (p) => p.kind === 'водопад' ? 'находится' : 'течет';
 const contsOf = () => (D.topics.continents || Object.keys(WORLD));
@@ -683,13 +701,10 @@ function tWhereMap(p) {
   return {
     kind: 'map', answerText: `${p.name} — ${p.cont}`,
     render(el, hint = 0) {
-      const wrongs = shuffle(Object.keys(WORLD).filter(c => c !== p.cont));
+      const wrongs = shuffle(WORLD_CONTS.filter(c => c !== p.cont));
       const dim = new Set(hint === 1 ? wrongs.slice(0, 2) : hint >= 2 ? wrongs.slice(0, 4) : []);
       el.innerHTML = `${hintTag(hint)}<h2>Ткни на карте: где ${verb(p)} ${esc(p.name)}?</h2>
-        <div class="geo-map"><svg viewBox="0 0 360 188" role="img" aria-label="Карта мира: материки">
-        <defs><pattern id="sea" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M0 6 q2.5 -3 5 0 t5 0" fill="none" stroke="#c9d6ec" stroke-width="1"/></pattern></defs>
-        <rect x="0" y="0" width="360" height="188" fill="url(#sea)"/>
-        ${Object.entries(WORLD).map(([c, d]) => `<path class="cont${dim.has(c) ? ' dim' : ''}" data-c="${esc(c)}" d="${d}"/>`).join('')}</svg></div>
+        <div id="geo-holder">${mapSVG({ mode: 'cont', dim })}</div>
         <p class="small muted geo-picked" id="geo-picked">&nbsp;</p>`;
       let done = false;
       el.querySelectorAll('.cont:not(.dim)').forEach(path => path.onclick = () => {
@@ -697,11 +712,44 @@ function tWhereMap(p) {
         const ok = path.dataset.c === p.cont;
         path.classList.add(ok ? 'ok' : 'bad');
         if (!ok) el.querySelector(`.cont[data-c="${p.cont}"]`).classList.add('ok');
+        if (p.lon != null) { el.querySelector('#geo-holder').innerHTML = mapSVG({ mode: 'none', marker: p }); el.querySelector(`.cont[data-c="${p.cont}"]`).classList.add('ok'); if (!ok) el.querySelector(`.cont[data-c="${path.dataset.c}"]`).classList.add('bad'); }
         el.querySelector('#geo-picked').textContent = ok ? `${p.cont}. ${p.countries ? 'Страны: ' + p.countries + '.' : ''}` : `Ты ткнул: ${path.dataset.c}. А ${p.name} — это ${p.cont}.`;
         finishTask(ok);
       });
     },
   };
+}
+// к бассейну какого океана относится река: нажимаем океан на карте
+function tOceanMap(p) {
+  const OCEANS = Object.keys((window.WORLD_MAP || { oceans: {} }).oceans);
+  return {
+    kind: 'map', answerText: `${p.name} — бассейн: ${p.ocean}`,
+    render(el, hint = 0) {
+      const wrongs = shuffle(OCEANS.filter(o => o !== p.ocean));
+      const dim = new Set(hint === 1 ? wrongs.slice(0, 1) : hint >= 2 ? wrongs.slice(0, 2) : []);
+      el.innerHTML = `${hintTag(hint)}<h2>Ткни океан: куда в итоге несет воду ${esc(p.name)}?</h2>
+        ${mapSVG({ mode: 'ocean', dim, marker: p })}<p class="small muted geo-picked" id="geo-picked">Река отмечена кружком. Нажми на воду.</p>`;
+      let done = false;
+      el.querySelectorAll('.ocean:not(.dim)').forEach(o => o.onclick = () => {
+        if (done) return; done = true;
+        const ok = o.dataset.o === p.ocean;
+        el.querySelectorAll(`.ocean[data-o="${o.dataset.o}"]`).forEach(x => x.classList.add(ok ? 'ok' : 'bad'));
+        if (!ok) el.querySelectorAll(`.ocean[data-o="${p.ocean}"]`).forEach(x => x.classList.add('ok'));
+        el.querySelector('#geo-picked').textContent = ok ? `${p.ocean}. ${p.mouth ? 'Впадает: ' + p.mouth + '.' : ''}` : `Ты ткнул: ${o.dataset.o}. А ${p.name} — ${p.ocean}${p.mouth ? ', через ' + p.mouth : ''}.`;
+        finishTask(ok);
+      });
+    },
+  };
+}
+// на карте точка — что это за объект
+function tWhatHere(p) {
+  const same = geoObjs(D.persons).filter(x => x.id !== p.id && x.kind === p.kind && x.lon != null);
+  const opts = shuffle([p.name, ...pick(same, 3).map(x => x.name)]);
+  const t = choice(`Что отмечено на карте?`, opts, p.name, null, `Здесь — ${p.name}: ${lc(p.who)}`);
+  const base = t.render;
+  t.render = (el, hint = 0) => { base(el, hint); el.querySelector('h2').insertAdjacentHTML('afterend', mapSVG({ mode: 'none', marker: p })); };
+  t.kind = 'map';
+  return t;
 }
 function tWhere(p) {
   const opts = shuffle([p.cont, ...pick(contsOf().filter(c => c !== p.cont && c !== 'Антарктида'), 3)]);
@@ -758,8 +806,8 @@ function tSortCont() {
 // одно задание «где это» из объектов параграфа: карта чаще всего, остальное для разнообразия
 function geoWhereTask(objs) {
   const o = geoObjs(objs); const p = pick(o, 1)[0];
-  const k = pick(['map', 'map', 'map', 'where', 'where', p.mouth ? 'mouth' : 'where', 'country', 'pairs', 'odd', 'sort'], 1)[0];
-  return k === 'map' ? tWhereMap(p) : k === 'where' ? tWhere(p) : k === 'mouth' ? tMouth(p) : k === 'country' ? tCountry(p) : k === 'pairs' ? tPairsWhere(o) : k === 'odd' ? tOdd() : tSortCont();
+  const k = pick(['map', 'map', 'map', 'here', 'here', p.ocean ? 'ocean' : 'here', 'where', p.mouth ? 'mouth' : 'where', 'country', 'pairs', 'odd', 'sort'], 1)[0];
+  return k === 'map' ? tWhereMap(p) : k === 'here' && p.lon != null ? tWhatHere(p) : k === 'ocean' ? tOceanMap(p) : k === 'where' ? tWhere(p) : k === 'mouth' ? tMouth(p) : k === 'country' ? tCountry(p) : k === 'pairs' ? tPairsWhere(o) : k === 'odd' ? tOdd() : tSortCont();
 }
 
 // ---------- русский: механики на понимание ----------
@@ -1084,7 +1132,9 @@ function buildGym(mode, ch) {
     ['type', 2, 1, ([f]) => tType(f)],
     ['order', 1, 4, (fs) => tOrder(fs)],
   ] : mode === 'map' ? [
-    ['map', 4, 1, ([p]) => tWhereMap(p)],
+    ['map', 3, 1, ([p]) => tWhereMap(p)],
+    ['here', 2, 1, ([p]) => p.lon != null ? tWhatHere(p) : tWhereMap(p)],
+    ['ocean', 1, 1, ([p]) => p.ocean ? tOceanMap(p) : tWhatHere(p)],
     ['where', 2, 1, ([p]) => tWhere(p)],
     ['mouth', 1, 1, ([p]) => p.mouth ? tMouth(p) : tCountry(p)],
     ['country', 1, 1, ([p]) => tCountry(p)],
