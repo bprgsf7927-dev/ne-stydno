@@ -666,6 +666,102 @@ function tTypeNum(fact) {
   };
 }
 
+// ---------- география: «где это» и карта материков ----------
+// Рисованная карта мира в стиле тетради: материки — кнопки. Координаты грубые нарочно: это каракули, а не атлас.
+const WORLD = {
+  'Северная Америка': 'M22 38 Q40 24 62 22 L108 18 Q122 22 126 34 L112 52 Q100 64 94 72 L86 86 Q82 96 76 94 L68 86 Q60 72 48 62 L32 56 Q24 48 22 38 Z M124 16 L150 12 L146 30 L130 32 Z',
+  'Южная Америка': 'M94 96 Q108 90 118 94 L136 106 Q134 120 128 128 L116 146 L106 162 Q100 156 100 146 L98 122 Q94 110 94 96 Z',
+  'Евразия': 'M166 32 Q190 20 204 20 L262 14 L320 20 Q342 26 346 36 L332 50 L320 60 L306 72 L290 86 L272 80 L256 90 L246 76 L226 70 L212 62 L196 56 L182 58 L170 50 Q164 42 166 32 Z',
+  'Африка': 'M164 64 L196 60 Q212 64 216 72 L222 86 L212 100 L206 124 L196 136 L188 126 L182 102 L170 92 Q160 78 164 64 Z',
+  'Австралия': 'M290 112 L314 104 Q328 110 330 118 L324 136 L306 136 L292 126 Z',
+  'Антарктида': 'M40 172 Q100 166 180 168 T320 172 L318 182 L42 182 Z',
+};
+const geoObjs = (arr) => (arr || []).filter(p => p.cont);
+const verb = (p) => p.kind === 'водопад' ? 'находится' : 'течет';
+const contsOf = () => (D.topics.continents || Object.keys(WORLD));
+function tWhereMap(p) {
+  return {
+    kind: 'map', answerText: `${p.name} — ${p.cont}`,
+    render(el, hint = 0) {
+      const wrongs = shuffle(Object.keys(WORLD).filter(c => c !== p.cont));
+      const dim = new Set(hint === 1 ? wrongs.slice(0, 2) : hint >= 2 ? wrongs.slice(0, 4) : []);
+      el.innerHTML = `${hintTag(hint)}<h2>Ткни на карте: где ${verb(p)} ${esc(p.name)}?</h2>
+        <div class="geo-map"><svg viewBox="0 0 360 188" role="img" aria-label="Карта мира: материки">
+        <defs><pattern id="sea" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M0 6 q2.5 -3 5 0 t5 0" fill="none" stroke="#c9d6ec" stroke-width="1"/></pattern></defs>
+        <rect x="0" y="0" width="360" height="188" fill="url(#sea)"/>
+        ${Object.entries(WORLD).map(([c, d]) => `<path class="cont${dim.has(c) ? ' dim' : ''}" data-c="${esc(c)}" d="${d}"/>`).join('')}</svg></div>
+        <p class="small muted geo-picked" id="geo-picked">&nbsp;</p>`;
+      let done = false;
+      el.querySelectorAll('.cont:not(.dim)').forEach(path => path.onclick = () => {
+        if (done) return; done = true;
+        const ok = path.dataset.c === p.cont;
+        path.classList.add(ok ? 'ok' : 'bad');
+        if (!ok) el.querySelector(`.cont[data-c="${p.cont}"]`).classList.add('ok');
+        el.querySelector('#geo-picked').textContent = ok ? `${p.cont}. ${p.countries ? 'Страны: ' + p.countries + '.' : ''}` : `Ты ткнул: ${path.dataset.c}. А ${p.name} — это ${p.cont}.`;
+        finishTask(ok);
+      });
+    },
+  };
+}
+function tWhere(p) {
+  const opts = shuffle([p.cont, ...pick(contsOf().filter(c => c !== p.cont && c !== 'Антарктида'), 3)]);
+  return choice(`Где ${verb(p)} ${p.name}?`, opts, p.cont, null, `${p.name} — ${p.cont}${p.countries ? ' (' + p.countries + ')' : ''}`);
+}
+function tMouth(p) {
+  const seas = [...new Set(D.persons.filter(x => x.mouth && x.mouth !== p.mouth).map(x => x.mouth))];
+  const opts = shuffle([p.mouth, ...pick(seas, 3)]);
+  return choice(`Куда впадает ${p.name}?`, opts, p.mouth, null, `${p.name} впадает: ${p.mouth}`);
+}
+function tCountry(p) {
+  const others = [...new Set(D.persons.filter(x => x.countries && x.countries !== p.countries).map(x => x.countries))];
+  return choice(`${p.name}: по каким странам?`, shuffle([p.countries, ...pick(others, 3)]), p.countries, null, `${p.name} — ${p.countries}`);
+}
+function tPairsWhere(objs) {
+  const set = [], seen = new Set();
+  for (const p of shuffle(objs.length >= 4 ? objs : geoObjs(D.persons))) { if (!seen.has(p.cont)) { seen.add(p.cont); set.push(p); } if (set.length === 4) break; }
+  return pairsTask(set.map(p => ({ id: p.id, l: p.name, r: p.cont })), 'Что где: соедини с материком');
+}
+function tOdd() {
+  const all = geoObjs(D.persons), by = {};
+  all.forEach(p => (by[p.cont] = by[p.cont] || []).push(p));
+  const cont = pick(Object.keys(by).filter(c => by[c].length >= 3), 1)[0];
+  const three = pick(by[cont], 3), odd = pick(all.filter(p => p.cont !== cont), 1)[0];
+  return choice(`Найди лишнее: три из одного материка, один — нет`, shuffle([...three, odd].map(p => p.name)), odd.name, null, `${three.map(p => p.name).join(', ')} — ${cont}; ${odd.name} — ${odd.cont}`);
+}
+function tSortCont() {
+  const all = geoObjs(D.persons), by = {};
+  all.forEach(p => (by[p.cont] = by[p.cont] || []).push(p));
+  const [a, b] = pick(Object.keys(by).filter(c => by[c].length >= 2), 2);
+  const items = shuffle([...pick(by[a], Math.min(3, by[a].length)), ...pick(by[b], Math.min(3, by[b].length))]);
+  return {
+    kind: 'sort', answerText: `${a}: ${items.filter(p => p.cont === a).map(p => p.name).join(', ')}; ${b}: ${items.filter(p => p.cont === b).map(p => p.name).join(', ')}`,
+    render(el, hint = 0) {
+      const put = {}; const pre = hint >= 1 ? items.slice(0, hint === 1 ? 1 : Math.max(1, items.length - 2)) : [];
+      pre.forEach(p => put[p.id] = p.cont);
+      el.innerHTML = `${hintTag(hint)}<h2>Разложи по материкам</h2><div class="sort-list">${items.map(p => `<div class="sort-row"><span class="sort-name">${esc(p.name)}</span>
+        <button class="opt sort-b${put[p.id] === a ? ' picked' : ''}" data-id="${p.id}" data-c="${esc(a)}"${put[p.id] ? ' disabled' : ''}>${esc(a)}</button>
+        <button class="opt sort-b${put[p.id] === b ? ' picked' : ''}" data-id="${p.id}" data-c="${esc(b)}"${put[p.id] ? ' disabled' : ''}>${esc(b)}</button></div>`).join('')}</div>`;
+      el.querySelectorAll('.sort-b').forEach(btn => btn.onclick = () => {
+        const id = +btn.dataset.id; if (put[id]) return;
+        put[id] = btn.dataset.c;
+        el.querySelectorAll(`.sort-b[data-id="${id}"]`).forEach(x => { x.disabled = true; x.classList.toggle('picked', x === btn); });
+        if (Object.keys(put).length === items.length) {
+          let ok = true;
+          items.forEach(p => { const good = put[p.id] === p.cont; if (!good) ok = false;
+            el.querySelectorAll(`.sort-b[data-id="${p.id}"]`).forEach(x => { if (x.dataset.c === p.cont) x.classList.add('correct'); else if (x.classList.contains('picked')) x.classList.add('wrong'); }); });
+          finishTask(ok);
+        }
+      });
+    },
+  };
+}
+// одно задание «где это» из объектов параграфа: карта чаще всего, остальное для разнообразия
+function geoWhereTask(objs) {
+  const o = geoObjs(objs); const p = pick(o, 1)[0];
+  const k = pick(['map', 'map', 'map', 'where', 'where', p.mouth ? 'mouth' : 'where', 'country', 'pairs', 'odd', 'sort'], 1)[0];
+  return k === 'map' ? tWhereMap(p) : k === 'where' ? tWhere(p) : k === 'mouth' ? tMouth(p) : k === 'country' ? tCountry(p) : k === 'pairs' ? tPairsWhere(o) : k === 'odd' ? tOdd() : tSortCont();
+}
+
 // ---------- русский: механики на понимание ----------
 const noDot = (x) => String(x).replace(/[.!]$/, '');
 const lc = (x) => x[0].toLowerCase() + x.slice(1);
@@ -812,6 +908,7 @@ function buildTasksFrom(pool, mech) {
     else if (m === 'cloze' && pool.cloze.some(c => !usedCloze.has(c.id))) { const c = pick(pool.cloze.filter(c => !usedCloze.has(c.id)), 1)[0]; usedCloze.add(c.id); tasks.push(tCloze(c)); }
     else if (m === 'tf' && pool.tf.some(x => !usedTf.has(x.id))) { const x = pick(pool.tf.filter(x => !usedTf.has(x.id)), 1)[0]; usedTf.add(x.id); tasks.push(tTrueFalse(x)); }
     else if (m === 'type' && yf.length) tasks.push(tType(pick(yf, 1)[0]));
+    else if (GEO && geoObjs(pool.persons).length && Math.random() < 0.5) tasks.push(geoWhereTask(pool.persons));
     else {
       const r = Math.random();
       if (r < 0.5 && pool.facts.length) tasks.push(tChoiceDate(nextFact(), allTopicFacts.length >= 4 ? allTopicFacts : allFacts));
@@ -899,6 +996,7 @@ function buildBoss(ch, level) {
       if (k === 'order') tasks.push(tOrder(pick(yf, 7)));
       else if (k === 'cloze') tasks.push(tCloze(cl[ci++ % cl.length]));
       else if (k === 'cause') tasks.push(tCause(cs[ca++ % cs.length]));
+      else if (GEO && geoObjs(persons).length && Math.random() < 0.6) tasks.push(geoWhereTask(persons));
       else { const r = Math.random(); tasks.push(r < 0.4 ? tChoiceDate(pick(facts, 1)[0], facts) : r < 0.7 ? tChoiceTerm(pick(terms, 1)[0], D.terms) : tChoicePerson(pick(persons, 1)[0], D.persons)); }
     }
   } else {
@@ -953,6 +1051,7 @@ const GYM_MODES = RUS ? {
   dates:   { title: 'Числа', items: (ts) => byTopics(D.facts, ts), word: ['число', 'числа', 'чисел'] },
   terms:   { title: 'Термины', items: (ts) => byTopics(D.terms, ts), word: ['термин', 'термина', 'терминов'] },
   persons: { title: 'Объекты', items: (ts) => byTopics(D.persons, ts), word: ['объект', 'объекта', 'объектов'] },
+  map:     { title: 'Карта', items: (ts) => geoObjs(byTopics(D.persons, ts)), word: ['объект', 'объекта', 'объектов'] },
 } : {
   dates:   { title: 'Даты', items: (ts) => byTopics(D.facts, ts), word: ['дата', 'даты', 'дат'] },
   terms:   { title: 'Термины', items: (ts) => byTopics(D.terms, ts), word: ['термин', 'термина', 'терминов'] },
@@ -972,7 +1071,7 @@ function tTermByDef(term, pool) {
 }
 function tPersonByWho(p, pool) {
   const opts = shuffle([p.name, ...pick(pool.filter(x => x.id !== p.id).map(x => x.name), 3)]);
-  return choice(`${p.who}. Кто это?`, opts, p.name, null, `${p.name} — ${p.who[0].toLowerCase() + p.who.slice(1)}`);
+  return choice(GEO ? `${p.who}. Что это?` : `${p.who}. Кто это?`, opts, p.name, null, `${p.name} — ${p.who[0].toLowerCase() + p.who.slice(1)}`);
 }
 function buildGym(mode, ch) {
   const items = GYM_MODES[mode].items(ch.topics);
@@ -984,6 +1083,12 @@ function buildGym(mode, ch) {
     ['pairs', 2, 4, (fs) => tPairs(fs)],
     ['type', 2, 1, ([f]) => tType(f)],
     ['order', 1, 4, (fs) => tOrder(fs)],
+  ] : mode === 'map' ? [
+    ['map', 4, 1, ([p]) => tWhereMap(p)],
+    ['where', 2, 1, ([p]) => tWhere(p)],
+    ['mouth', 1, 1, ([p]) => p.mouth ? tMouth(p) : tCountry(p)],
+    ['country', 1, 1, ([p]) => tCountry(p)],
+    ['pairs', 2, 4, (ps) => tPairsWhere(ps)],
   ] : mode === 'terms' ? [
     ['choice', 3, 1, ([t]) => tChoiceTerm(t, pool)],
     ['rev', 3, 1, ([t]) => tTermByDef(t, pool)],
@@ -1028,7 +1133,7 @@ function renderGym() {
   $('gym-seg').innerHTML = Object.entries(GYM_MODES).map(([k, m]) => `<button class="seg-btn${k === gymMode ? ' active' : ''}" data-mode="${k}">${m.title}</button>`).join('');
   $('gym-seg').querySelectorAll('.seg-btn').forEach(b => b.onclick = () => { gymMode = b.dataset.mode; renderGym(); });
   $('gym-pic').innerHTML = charSVG('dushka', 'idle', null, 46);
-  $('gym-say').innerHTML = `<b>Душка:</b> Вся глава за один подход. Всего 7–10 минут — и ты готов к проверочной по ${RUS ? 'теории' : (GEO ? { dates: 'числам', terms: 'терминам', persons: 'объектам' } : { dates: 'датам', terms: 'терминам', persons: 'личностям' })[gymMode]}. Не уверен — повторяй, пока не надоест.`;
+  $('gym-say').innerHTML = `<b>Душка:</b> Вся глава за один подход. Всего 7–10 минут — и ты готов к проверочной по ${RUS ? 'теории' : (GEO ? { dates: 'числам', terms: 'терминам', persons: 'объектам', map: 'карте' } : { dates: 'датам', terms: 'терминам', persons: 'личностям' })[gymMode]}. Не уверен — повторяй, пока не надоест.`;
   const box = $('gym-list'); box.innerHTML = ''; let book = null;
   for (const ch of D.topics.chapters) {
     const n = GYM_MODES[gymMode].items(ch.topics).length; if (!n) continue;

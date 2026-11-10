@@ -411,3 +411,18 @@ textarea.explain:disabled { color: var(--muted); }
 .keys { display: grid; gap: 6px; }
 .key { display: flex; gap: 10px; align-items: flex-start; border: 2px solid var(--ink); border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; padding: 8px 12px; background: var(--card); cursor: pointer; }
 .key input { width: 20px; height: 20px; accent-color: var(--ok); margin: 1px 0 0; flex: none; }
+
+/* география: карта материков и «разложи по материкам» */
+.geo-map { border: 2.5px solid var(--ink); border-radius: 255px 18px 225px 18px / 18px 225px 18px 255px; background: var(--card); padding: 6px; margin: 4px 0 6px; }
+.geo-map svg { width: 100%; height: auto; display: block; }
+.geo-map .cont { fill: #fffdf6; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; cursor: pointer; transition: fill .15s; }
+.geo-map .cont:hover { fill: #eef2fb; }
+.geo-map .cont.dim { opacity: .25; pointer-events: none; }
+.geo-map .cont.ok { fill: #cfeedd; stroke: var(--ok); stroke-width: 3; }
+.geo-map .cont.bad { fill: #f6d3cd; stroke: #c0392b; stroke-width: 3; }
+.geo-picked { text-align: center; min-height: 1.4em; }
+.sort-list { display: flex; flex-direction: column; gap: 6px; }
+.sort-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; align-items: center; }
+.sort-name { font-weight: 600; }
+.sort-row .opt { margin: 0; padding: 8px 6px; font-size: 14px; min-height: 0; }
+.sort-row .opt.picked { border-color: var(--accent); color: var(--accent); }
