@@ -1,0 +1,19 @@
+C4Container
+  title «Не стыдно» — контейнеры (as-is, 16.11.2026)
+  Person(student, "Ученик")
+  Container_Boundary(site, "Сайт на GitHub Pages") {
+    Container(spa, "Страница тренажера", "HTML, CSS, JS без сборки", "index.html, js/app.js, js/characters.js, js/avatar.js, js/worldmap.js")
+    ContainerDb(local, "Прогресс в телефоне", "localStorage", "Прогресс по предметам, профиль, id устройства")
+    Container(content, "Контент курсов", "JSON", "content/srednie-veka-6, russkiy-6, geografia-6")
+    Container(pagesx, "Служебные страницы", "HTML", "stats.html, privacy.html")
+  }
+  Container_Boundary(yc, "Yandex Cloud") {
+    Container(fn, "Функция", "Cloud Functions, Node.js 22", "server/yandex-function/index.js: аккаунты, прогресс, счетчик")
+    ContainerDb(s3, "Бакет ne-stydno-progress", "Object Storage", "login/, acc/, prog/, devices/, stats.json")
+  }
+  Rel(student, spa, "Открывает", "HTTPS")
+  Rel(spa, local, "Читает и пишет")
+  Rel(spa, content, "Загружает", "fetch")
+  Rel(spa, fn, "ping раз в день", "HTTPS")
+  Rel(pagesx, fn, "stats", "HTTPS")
+  Rel(fn, s3, "Читает и пишет", "IAM-токен")

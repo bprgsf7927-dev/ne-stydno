@@ -1,0 +1,13 @@
+C4Context
+  title «Не стыдно» — контекст (as-is, 16.11.2026)
+  Person(student, "Ученик", "Занимается с телефона или компьютера, с аккаунтом или без")
+  Person(alena, "Алена", "Консоль Yandex Cloud, настройки GitHub Pages")
+  System(nestydno, "Не стыдно", "Тренажер: история, русский, география, 6 класс")
+  System_Ext(pages, "GitHub Pages", "Хостинг статического сайта")
+  System_Ext(yc, "Yandex Cloud", "Функция и Object Storage, данные в России")
+  System_Ext(cloudtips, "CloudTips", "Донат «пицца»")
+  Rel(student, nestydno, "Тренируется", "HTTPS")
+  Rel(nestydno, pages, "Отдается с")
+  Rel(nestydno, yc, "Счетчик, аккаунты, прогресс", "HTTPS")
+  Rel(student, cloudtips, "Донат по ссылке")
+  Rel(alena, yc, "Загружает код функции, настраивает")
