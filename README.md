@@ -47,7 +47,6 @@ content/srednie-veka-6/
 tools/xlsx2json.py         — xlsx → json (запускать после правки таблицы)
 tools/build_content.py     — первичная сборка xlsx из авторского источника (разово)
 assets/                    — иконки сайта
-docs/tasks/                — спеки заданий, одна на этап: YYYY-MM-DD_тема.md
 docs/BACKLOG.md            — что решили делать потом
 docs/STYLE.md              — гайд по стилю «каракули в тетради», сверяться перед любым новым элементом
 manifest.webmanifest       — чтобы на телефоне добавлялось на главный экран

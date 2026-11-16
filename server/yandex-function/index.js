@@ -1,5 +1,5 @@
 // Бэкенд «Не стыдно»: одна функция Yandex Cloud Functions (Node.js 22).
-// Аккаунты по логину и паролю (спека docs/tasks/2026-11-10_akkaunty-login.md), прогресс в Object Storage, анонимный счетчик.
+// Аккаунты по логину и паролю (спека 2026-11-10_akkaunty-login), прогресс в Object Storage, анонимный счетчик.
 //
 // Маршруты (?r=...):
 //  POST register  {login, password, nick, avatar} → {token, recovery}
