@@ -438,3 +438,4 @@ textarea.explain:disabled { color: var(--muted); }
 .sort-name { font-weight: 600; }
 .sort-row .opt { margin: 0; padding: 8px 6px; font-size: 14px; min-height: 0; }
 .sort-row .opt.picked { border-color: var(--accent); color: var(--accent); }
+.assoc .bulb { vertical-align: -4px; margin-right: 2px; }

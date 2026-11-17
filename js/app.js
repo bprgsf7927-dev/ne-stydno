@@ -170,6 +170,9 @@ const STAR = () => `<svg viewBox="0 0 32 32" width="22" height="22">${HATCH('hs'
 const FIRE = () => `<svg viewBox="0 0 32 32" width="22" height="22">${HATCH('hf', '#e8641b')}<path d="M16 2q2 7 7 11q5 6 1 13q-4 5-9 4q-7-1-8-8q-1-6 4-10q-1 5 3 6q0-6 2-16z" fill="url(#hf)" stroke="#1e2235" stroke-width="2.2" stroke-linejoin="round"/></svg>`;
 const PIZZA = () => `<svg viewBox="0 0 32 32" width="24" height="24">${HATCH('hp', '#e8a43b')}<path d="M4 6l24 4l-16 20z" fill="url(#hp)" stroke="#1e2235" stroke-width="2.2" stroke-linejoin="round"/><path d="M4 6q14 0 24 4" stroke="#D9480F" stroke-width="3" fill="none"/><circle cx="12" cy="12" r="2" fill="#D9480F"/><circle cx="17" cy="16" r="2" fill="#D9480F"/><circle cx="11" cy="20" r="1.8" fill="#D9480F"/></svg>`;
 const DONATE_URL = 'https://pay.cloudtips.ru/p/266b3d2a'; // CloudTips, аккаунт Алены
+// лампочка ассоциации: рисованная, как остальные иконки (по docs/STYLE.md эмодзи не используем)
+const BULB = () => `<svg class="bulb" viewBox="0 0 32 32" width="20" height="20" fill="none" stroke="#1e2235" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${HATCH('hb', '#e0a800')}<path d="M16 4q-9 1-9 10q0 5 4 8v3h10v-3q4-3 4-8q0-9-9-10z" fill="url(#hb)"/><path d="M12 28h8M14 31h4"/></svg>`;
+const showAssoc = (text) => { $('assoc').innerHTML = `${BULB()} ${esc(text)}`; $('assoc').classList.remove('hidden'); };
 const heartsHTML = (n, max = 3) => Array.from({ length: max }, (_, i) => HEART(i < n)).join('');
 const DOODLE = {
   star:  '<path d="M32 8l7 16l17 2l-13 11l5 17l-16-9l-16 9l5-17l-13-11l17-2z"/>',
@@ -440,7 +443,7 @@ function openCards(tid, idx, peek = false) {
   } else list = cardsOf(D.facts.filter(f => inTopic(f, tid)), D.terms.filter(x => inTopic(x, tid)), D.persons.filter(x => inTopic(x, tid)));
   cards = { tid, idx, peek, i: 0, flipped: false, list, seen: new Set([0]) };
   $('cards-title').textContent = peek ? `${t.paragraph} · освежить память` : `${t.paragraph} · Знакомство`;
-  $('cards-sub').textContent = peek ? 'Только то, что будет в этой тренировке.' : `${list.length} карточек: ${RUS ? 'понятия параграфа' : GEO ? 'числа, термины, объекты' : 'даты, термины, имена'}. Нажми, чтобы перевернуть. Долистай до конца — и откроется первая тренировка.`;
+  $('cards-sub').textContent = peek ? 'Только то, что будет в этой тренировке.' : `${list.length} карточек: ${RUS ? 'понятия параграфа' : GEO ? 'числа, термины, объекты' : 'даты, термины, имена'}. Нажми, чтобы перевернуть.`;
   $('cards-start').textContent = peek ? 'Поехали' : 'Я все посмотрел';
   $('cards-start').disabled = !peek;
   renderCard();
@@ -459,9 +462,8 @@ $('cards-prev').onclick = () => { cards.i = (cards.i - 1 + cards.list.length) % 
 $('cards-next').onclick = () => { cards.i = (cards.i + 1) % cards.list.length; cards.flipped = false; cards.seen.add(cards.i); renderCard(); };
 $('cards-start').onclick = () => {
   if (cards.peek) return runStep(cards.tid, cards.idx);
-  // знакомство пройдено
-  const key = stepKey(cards.tid, cards.idx); state.steps[key] = { best: 100, rounds: ((state.steps[key] || {}).rounds || 0) + 1 }; save();
-  renderHome(); show('screen-home');
+  // Книжка — справочник: просто возвращаемся на карту, шаги не засчитываем
+  renderHome(); show('screen-home'); renderTabs('map');
 };
 $('cards-home').onclick = () => { renderHome(); show('screen-home'); };
 $('soon-back').onclick = () => { renderHome(); show('screen-home'); };
@@ -1243,7 +1245,7 @@ function finishTask(ok, half = false) {
     run.score++; run.xp += XP_PER_TASK / 2;
     speak('nerd', ok ? 'Запомни это.' : 'Вот так правильно. Через пару заданий спрошу.');
     $('feedback-text').innerHTML = `<b>${ok ? 'Да.' : 'Вот так.'}</b> ${esc(t.answerText)}.`;
-    if (t.fact) { state.seen[t.fact.id] = Date.now(); if (t.fact.assoc && !ok) { $('assoc').textContent = `💡 ${t.fact.assoc}`; $('assoc').classList.remove('hidden'); } }
+    if (t.fact) { state.seen[t.fact.id] = Date.now(); if (t.fact.assoc && !ok) showAssoc(t.fact.assoc); }
     save(); return;
   }
   if (!ok && run.redo && !t.lead) run.wrong.push(t);
@@ -1261,7 +1263,7 @@ function finishTask(ok, half = false) {
       $('feedback-text').innerHTML = t.kind === 'explain' ? `<b>Ты не прав.</b> Главного пока нет. Простыми словами: ${esc(t.answerText)}.` : `<b>Ты не прав.</b> Правильно: ${esc(t.answerText)}.`;
     }
     if (t.fact) {
-      if (t.fact.assoc) { $('assoc').textContent = `💡 ${t.fact.assoc}`; $('assoc').classList.remove('hidden'); }
+      if (t.fact.assoc) showAssoc(t.fact.assoc);
       if (!state.wrong.includes(t.fact.id)) state.wrong.push(t.fact.id);
     }
     if (run.hearts !== null && !half) { run.hearts--; renderHearts(); }
@@ -1405,7 +1407,7 @@ function renderCabinet() {
 // ник: без перерисовки экрана, иначе тап по кнопке после ввода теряется (экран пересобирается под пальцем)
 $('cab-nick').oninput = (e) => { state.profile.nick = e.target.value.trim(); save(); if (state.profile.nick) $('cab-say').innerHTML = `<b>Опти:</b> ${esc(`${state.profile.nick}, это ты? Похож!`)}`; };
 $('cab-random').onclick = () => { state.profile.avatar = avatarRandom(); save(); renderCabinet(); };
-$('cab-save').onclick = () => { $('hint-title').textContent = 'Скоро'; $('hint-text').textContent = 'Вход через Telegram или почту сейчас делается. Когда появится — прогресс с этого телефона переедет в облако, ничего не потеряется.'; $('hint').classList.remove('hidden'); };
+$('cab-save').onclick = () => { $('hint-title').textContent = 'Скоро'; $('hint-text').textContent = 'Вход по логину и паролю сейчас делается. Когда появится — прогресс с этого телефона переедет в облако, ничего не потеряется.'; $('hint').classList.remove('hidden'); };
 function renderSoon(k) {
   const who = k === 'events' ? 'nik' : 'dushka';
   $('soon-pic').innerHTML = charSVG(who, 'idle', null, 90);
@@ -1416,8 +1418,8 @@ $('brand').onclick = () => { if (!$('screen-task').classList.contains('hidden'))
 // подсказки по значкам
 const HINTS = {
   xp: ['Звезды', 'Опыт. 10 за каждое верное задание, 5 за «почти». Просто растут — это приятно.'],
-  streak: ['Огонек', 'Дней подряд, когда ты заходил и проходил хотя бы один шаг. Пропустил день — сгорает.'],
-  hearts: ['Сердца', 'Жизни на третьем уровне босса. Дает сундук: пройди тест по прошлому параграфу на 70%. Максимум три, после босса сгорают.'],
+  streak: ['Огонек', 'Дней подряд, когда ты начинал хотя бы одну тренировку. Пропустил день — сгорает.'],
+  hearts: ['Сердца', 'Жизни на третьем уровне босса. Дает сундук: пройди до конца тест по прошлому параграфу — сердце за первое прохождение. Максимум три, после третьего уровня босса сгорают.'],
   nodes: ['Что на карте', 'Звезда — тренировка на 8 заданий; в первых тренировках есть «первые встречи» — там нельзя ошибиться по-настоящему. Книжка внизу — весь параграф карточками, на любой момент. Сундук — повторение прошлого параграфа, дает сердце. Лист — контрольная по параграфу, как спросит учитель. Тренировка не отпускает, пока не ответишь на все: ошибки возвращаются, сначала просто еще раз, потом с подсказкой. Корона — если все верно с первого раза.'],
   crown: ['Корона', 'За тренировку или контрольную без единой ошибки с первого раза. Любую можно переиграть и добрать до короны. Короны на всех тренировках параграфа — корона в списке.'],
   daily: ['Микс дня', '5 заданий из того, в чем ты ошибался, и того, что давно не повторял. Собирается заново каждый день.'],
